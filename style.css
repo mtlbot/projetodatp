@@ -1,0 +1,162 @@
+/* ==========================================================================
+   ESTILOS GERAIS DA APLICAÇÃO (GTK3)
+   ========================================================================== */
+
+/* Fundo Geral da Janela Principal */
+window, .main-bg {
+    background-color: #F8F7F2;
+    font-family: 'Segoe UI', 'Ubuntu', sans-serif;
+}
+
+/* ==========================================================================
+   BARRA LATERAL (SIDEBAR)
+   ========================================================================== */
+
+.sidebar {
+    background-color: #003322;
+    padding: 20px 12px;
+}
+
+.sidebar-title {
+    color: #FFFFFF;
+    font-size: 20px;
+    font-weight: bold;
+    font-family: serif;
+}
+
+.sidebar-subtitle {
+    color: #C5A059;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 25px;
+}
+
+/* Botões de Navegação da Sidebar */
+.nav-btn {
+    background-color: transparent;
+    background-image: none;
+    color: #E0E8E3;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    margin-bottom: 4px;
+    box-shadow: none;
+}
+
+.nav-btn:hover {
+    background-color: #004D33;
+    color: #FFFFFF;
+}
+
+.nav-btn:checked, .nav-btn.active {
+    background-color: #004D33;
+    color: #FFFFFF;
+    font-weight: bold;
+}
+
+/* ==========================================================================
+   TÍTULOS E NAVEGAÇÃO DA ÁREA PRINCIPAL
+   ========================================================================== */
+
+.page-title {
+    font-size: 26px;
+    font-weight: bold;
+    color: #1A1A1A;
+    font-family: serif;
+}
+
+.page-subtitle {
+    font-size: 13px;
+    color: #666666;
+    margin-bottom: 15px;
+}
+
+/* Pílulas de Seleção (Dias da Semana e Horários) */
+.pill-btn {
+    background-color: #FFFFFF;
+    background-image: none;
+    color: #333333;
+    border: 1px solid #E0DDD5;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    box-shadow: none;
+}
+
+.pill-btn:hover {
+    background-color: #F0EEE6;
+}
+
+.pill-btn:checked, .pill-btn.active {
+    background-color: #004D33;
+    color: #FFFFFF;
+    border-color: #004D33;
+}
+
+/* ==========================================================================
+   CARDS DE INDICADORES (KPIs)
+   ========================================================================== */
+
+.kpi-card {
+    background-color: #FFFFFF;
+    border-radius: 10px;
+    border: 1px solid #E5E2D8;
+    padding: 12px 16px;
+}
+
+.kpi-card.blue {
+    background-color: #DCE6F8;
+    border-color: #B2C8F0;
+}
+
+.kpi-card.green {
+    background-color: #D1FADF;
+    border-color: #A3E8BF;
+}
+
+.kpi-card.orange {
+    background-color: #FFEDD5;
+    border-color: #FDBA74;
+}
+
+.kpi-value {
+    font-size: 24px;
+    font-weight: bold;
+    font-family: serif;
+}
+
+/* ==========================================================================
+   GRELHA DE CARDS DE SALAS (GtkFlowBox)
+   ========================================================================== */
+
+.room-card {
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 130px;
+    min-height: 75px;
+}
+
+/* Card de Sala Ocupada (Azul) */
+.room-card.occupied {
+    background-color: #DCE6F8;
+    border: 1px solid #B2C8F0;
+    color: #1E3A8A;
+}
+
+/* Card de Sala Livre (Verde) */
+.room-card.available {
+    background-color: #D1FADF;
+    border: 1px solid #A3E8BF;
+    color: #065F46;
+}
+
+.room-code {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.room-desc {
+    font-size: 10px;
+    font-weight: 600;
+}
