@@ -1,0 +1,9 @@
+# Compilação e Binários
+*.o
+*.gch
+*.exe
+bin/
+obj/
+
+# Arquivos de dados locais
+data/*.dat
