@@ -7,3 +7,9 @@ obj/
 
 # Arquivos de dados locais
 data/*.dat
+data/*.tmp
+data/teste_*
+
+# Gerados pelo Code::Blocks
+*.depend
+*.layout

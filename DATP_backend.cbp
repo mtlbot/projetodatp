@@ -6,42 +6,83 @@
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
 		<Build>
+			<!-- Programa com interface GTK (abre console junto, para ver avisos) -->
 			<Target title="Debug">
-				<Option output="bin/Debug/DATP_backend" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Debug/DATP" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="`pkg-config --cflags gtk+-3.0`" />
+				</Compiler>
+				<Linker>
+					<Add option="`pkg-config --libs gtk+-3.0`" />
+				</Linker>
+			</Target>
+			<!-- Programa com interface GTK, sem janela de console -->
+			<Target title="Release">
+				<Option output="bin/Release/DATP" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="`pkg-config --cflags gtk+-3.0`" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add option="-mwindows" />
+					<Add option="`pkg-config --libs gtk+-3.0`" />
+				</Linker>
+			</Target>
+			<!-- Bateria de testes do backend em modo console (nao precisa de GTK) -->
+			<Target title="Testes">
+				<Option output="bin/Testes/testes" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Testes/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
 				</Compiler>
 			</Target>
-			<Target title="Release">
-				<Option output="bin/Release/DATP_backend" prefix_auto="1" extension_auto="1" />
-				<Option object_output="obj/Release/" />
-				<Option type="1" />
-				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-O2" />
-				</Compiler>
-				<Linker>
-					<Add option="-s" />
-				</Linker>
-			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add directory="C:/ProjetoDATP/DATP_backend/include" />
+			<Add option="-std=gnu99" />
+			<Add directory="include" />
 		</Compiler>
 		<Unit filename="include/backend.h" />
+		<Unit filename="include/interface.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="include/modelos.h" />
 		<Unit filename="src/alocacao_crud.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/csv_import.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/interface.c">
+			<Option compilerVar="CC" />
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="src/main.c">
 			<Option compilerVar="CC" />
+			<Option target="Debug" />
+			<Option target="Release" />
 		</Unit>
 		<Unit filename="src/salas_crud.c">
 			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/util.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="tests/testes.c">
+			<Option compilerVar="CC" />
+			<Option target="Testes" />
 		</Unit>
 		<Extensions>
 			<lib_finder disable_auto="1" />
