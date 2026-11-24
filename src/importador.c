@@ -145,6 +145,13 @@ static int ler_horarios(const char *texto, char horas[][6], int max) {
     return achados;
 }
 
+// Textos que a planilha usa quando a sala ainda nao foi escolhida
+static int sala_nao_definida(const char *sala) {
+    const char *vazios[] = {"", "-", "--", "?", "A DEFINIR", "A Definir", "a definir", "SEM SALA", "Sem sala", "sem sala", NULL};
+    for (int i = 0; vazios[i]; i++) if (strcmp(sala, vazios[i]) == 0) return 1;
+    return 0;
+}
+
 static void preencher_texto(AlocacaoTurma *a, char *campos[]) {
     copiar_seguro(a->departamento, sizeof(a->departamento), campos[0]);
     copiar_seguro(a->disciplina, sizeof(a->disciplina), campos[1]);
@@ -199,7 +206,11 @@ int importar_grade_csv_detalhado(const char *caminho_arquivo, AlocacaoTurma *lis
             ok = 1;
         }
 
-        if (ok && strlen(nova.disciplina) > 0 && strlen(nova.id_sala) > 0 && strcmp(horas[0], horas[1]) < 0) {
+        // Sala ainda nao definida na planilha ("-", "A DEFINIR", "SEM SALA"...): a aula entra sem sala
+        // e aparece no aviso "Turmas sem sala" para o DATP resolver depois.
+        if (ok && sala_nao_definida(nova.id_sala)) nova.id_sala[0] = '\0';
+
+        if (ok && strlen(nova.disciplina) > 0 && strcmp(horas[0], horas[1]) < 0) {
             strcpy(nova.hora_inicio, horas[0]);
             strcpy(nova.hora_fim, horas[1]);
             nova.id_alocacao = *qtd + 1;

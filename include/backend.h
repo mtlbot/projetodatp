@@ -81,4 +81,22 @@ int renomear_sala_nas_alocacoes(const char *caminho_arquivo, const char *id_anti
 // Grava o vetor inteiro de salas no arquivo (substitui o conteudo). Retorna 1 (sucesso) ou 0 (erro de disco).
 int gravar_todas_salas(const char *caminho_arquivo, SalaFisica *lista, int qtd);
 
+// Troca as salas de duas aulas entre si (inversao de sala).
+// Retorna 1 (sucesso), -1 (depois da troca alguma bateria com outra aula), -2 (ID nao encontrado) ou 0 (erro ao salvar).
+int inverter_salas(const char *caminho_arquivo, int id_a, int id_b, AlocacaoTurma *lista, int qtd_total);
+
+// =======================================================
+// MODULO 4: EXPORTACAO E HISTORICO (exportador.c / historico.c)
+// =======================================================
+
+// Gera a planilha "TURMA - HORARIO" em CSV (so aulas ativas, ordenadas por dia/horario/sala).
+// O arquivo pode ser importado de volta. Retorna 1 (sucesso) ou 0 (erro ao gravar).
+int exportar_grade_csv(const char *caminho_arquivo, AlocacaoTurma *lista, int qtd);
+
+// Acrescenta uma linha "dd/mm/aaaa hh:mm | texto" no arquivo de historico. Retorna 1 ou 0.
+int registrar_historico(const char *caminho_arquivo, const char *texto);
+
+// Le as ultimas "max" linhas do historico, a mais recente primeiro. Retorna quantas leu.
+int ler_historico(const char *caminho_arquivo, char linhas[][TAM_LINHA_HISTORICO], int max);
+
 #endif

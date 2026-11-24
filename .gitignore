@@ -7,3 +7,11 @@ obj/
 
 # Arquivos de dados locais
 data/*.dat
+
+# Pacote para Windows (gerado por "make pacote")
+ControleDeSalas/
+
+# Cópias de segurança e arquivos temporários do sistema
+data/backup-*/
+data/historico.txt
+data/*_temp.csv
