@@ -76,3 +76,61 @@ int buscar_salas_livres(const char *dia_semana, const char *hora_inicio, const c
     }
     return 1;
 }
+
+// Grava o vetor inteiro de salas no arquivo (substitui o conteudo antigo).
+// Usada por excluir_sala e renomear_sala. Retorna 1 (sucesso) ou 0 (erro de disco).
+int gravar_todas_salas(const char *caminho_arquivo, SalaFisica *lista, int qtd) {
+    FILE *arquivo = fopen(caminho_arquivo, "wb");
+    if (arquivo == NULL) return 0;
+
+    size_t escrito = fwrite(lista, sizeof(SalaFisica), qtd, arquivo);
+    fclose(arquivo);
+    return (escrito == (size_t)qtd) ? 1 : 0;
+}
+
+int excluir_sala(const char *caminho_arquivo, const char *id_sala) {
+    SalaFisica lista[MAX_SALAS];
+    int qtd = 0;
+    listar_todas_salas(caminho_arquivo, lista, &qtd, MAX_SALAS);
+
+    // Copia para frente todas as salas, menos a que vai ser excluida
+    int nova_qtd = 0, achou = 0;
+    for (int i = 0; i < qtd; i++) {
+        if (strcmp(lista[i].id_sala, id_sala) == 0) {
+            achou = 1;
+            continue;
+        }
+        lista[nova_qtd] = lista[i];
+        nova_qtd++;
+    }
+    if (!achou) return -2; // A sala nao estava no arquivo
+
+    return gravar_todas_salas(caminho_arquivo, lista, nova_qtd);
+}
+
+int renomear_sala(const char *caminho_arquivo, const char *id_antigo, const char *id_novo) {
+    if (strlen(id_novo) == 0) return 0; // Nome vazio nao pode
+
+    SalaFisica lista[MAX_SALAS];
+    int qtd = 0;
+    listar_todas_salas(caminho_arquivo, lista, &qtd, MAX_SALAS);
+
+    int posicao = -1;
+    for (int i = 0; i < qtd; i++) {
+        if (strcmp(lista[i].id_sala, id_novo) == 0) return -1; // Ja existe sala com o novo nome
+        if (strcmp(lista[i].id_sala, id_antigo) == 0) posicao = i;
+    }
+
+    // A sala so existia na grade (nunca foi gravada em salas.dat): cadastra com o novo nome
+    if (posicao == -1) {
+        SalaFisica nova;
+        memset(&nova, 0, sizeof(nova));
+        strncpy(nova.id_sala, id_novo, sizeof(nova.id_sala) - 1);
+        return cadastrar_nova_sala(caminho_arquivo, nova);
+    }
+
+    // Troca so o nome; capacidade e status de manutencao continuam iguais
+    memset(lista[posicao].id_sala, 0, sizeof(lista[posicao].id_sala));
+    strncpy(lista[posicao].id_sala, id_novo, sizeof(lista[posicao].id_sala) - 1);
+    return gravar_todas_salas(caminho_arquivo, lista, qtd);
+}

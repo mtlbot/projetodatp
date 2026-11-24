@@ -247,6 +247,124 @@ static void marcar_pilula(GtkWidget *pills[NUM_DIAS], int ativo) {
 }
 
 // =======================================================
+// DESFAZER: balão que aparece por alguns segundos depois de cada ação
+// =======================================================
+
+#define SEGUNDOS_BALAO 8
+
+// "Fotos" dos dados. A pendente é tirada no começo da ação; a de desfazer
+// só é trocada quando a ação dá certo (assim, uma ação cancelada no meio
+// não estraga o Desfazer da ação anterior).
+static AlocacaoTurma foto_pendente_aulas[MAX_ALOCACOES];
+static SalaFisica    foto_pendente_salas[MAX_SALAS];
+static int foto_pendente_qtd_aulas = 0, foto_pendente_qtd_salas = 0;
+
+static AlocacaoTurma foto_desfazer_aulas[MAX_ALOCACOES];
+static SalaFisica    foto_desfazer_salas[MAX_SALAS];
+static int foto_desfazer_qtd_aulas = 0, foto_desfazer_qtd_salas = 0;
+
+// Peças do balão (criadas uma vez só, em criar_balao)
+static GtkWidget *balao_revealer = NULL;
+static GtkWidget *balao_texto = NULL;
+static GtkWidget *balao_btn_desfazer = NULL;
+static guint balao_timer = 0; // número do "despertador" que esconde o balão (0 = nenhum)
+
+// PASSO A da ação: tira a foto de como tudo está ANTES de mudar
+static void preparar_desfazer(InterfaceApp *ui) {
+    memcpy(foto_pendente_aulas, ui->alocacoes, sizeof(AlocacaoTurma) * ui->qtd_alocacoes);
+    foto_pendente_qtd_aulas = ui->qtd_alocacoes;
+    memcpy(foto_pendente_salas, ui->salas, sizeof(SalaFisica) * ui->qtd_salas);
+    foto_pendente_qtd_salas = ui->qtd_salas;
+}
+
+// O despertador tocou: esconde o balão
+static gboolean esconder_balao(gpointer data) {
+    (void)data;
+    gtk_revealer_set_reveal_child(GTK_REVEALER(balao_revealer), FALSE);
+    balao_timer = 0;
+    return G_SOURCE_REMOVE; // não repete
+}
+
+// Mostra o balão com um texto; com_desfazer diz se o botão "Desfazer" aparece
+static void mostrar_balao(const char *texto, gboolean com_desfazer) {
+    gtk_label_set_text(GTK_LABEL(balao_texto), texto);
+    gtk_widget_set_visible(balao_btn_desfazer, com_desfazer);
+    gtk_revealer_set_reveal_child(GTK_REVEALER(balao_revealer), TRUE);
+
+    if (balao_timer != 0) g_source_remove(balao_timer); // já tinha um balão: recomeça a contagem
+    balao_timer = g_timeout_add_seconds(SEGUNDOS_BALAO, esconder_balao, NULL);
+}
+
+// PASSO B da ação: deu certo, então a foto vira a do Desfazer e o balão aparece
+static void oferecer_desfazer(const char *texto) {
+    memcpy(foto_desfazer_aulas, foto_pendente_aulas, sizeof(AlocacaoTurma) * foto_pendente_qtd_aulas);
+    foto_desfazer_qtd_aulas = foto_pendente_qtd_aulas;
+    memcpy(foto_desfazer_salas, foto_pendente_salas, sizeof(SalaFisica) * foto_pendente_qtd_salas);
+    foto_desfazer_qtd_salas = foto_pendente_qtd_salas;
+    mostrar_balao(texto, TRUE);
+}
+
+// Clique em "Desfazer": volta a foto para a memória e para os arquivos .dat
+static void ao_clicar_desfazer(GtkWidget *btn, gpointer data) {
+    (void)btn;
+    InterfaceApp *ui = data;
+
+    int ok_aulas = salvar_alocacoes(ARQ_ALOCACOES, foto_desfazer_aulas, foto_desfazer_qtd_aulas);
+    int ok_salas = gravar_todas_salas(ARQ_SALAS, foto_desfazer_salas, foto_desfazer_qtd_salas);
+    if (!ok_aulas || !ok_salas) {
+        carregar_dados(ui); // mostra o que realmente ficou gravado no disco
+        atualizar_telas(ui);
+        erro_ao_salvar(ui);
+        return;
+    }
+    memcpy(ui->alocacoes, foto_desfazer_aulas, sizeof(AlocacaoTurma) * foto_desfazer_qtd_aulas);
+    ui->qtd_alocacoes = foto_desfazer_qtd_aulas;
+    recarregar_salas(ui);
+    atualizar_telas(ui);
+    mostrar_balao("Pronto, a ação foi desfeita.", FALSE);
+}
+
+// Clique no "✕": fecha o balão antes da hora
+static void ao_fechar_balao(GtkWidget *btn, gpointer data) {
+    (void)btn; (void)data;
+    if (balao_timer != 0) {
+        g_source_remove(balao_timer);
+        balao_timer = 0;
+    }
+    gtk_revealer_set_reveal_child(GTK_REVEALER(balao_revealer), FALSE);
+}
+
+// Monta o balão (fica escondido até alguém chamar mostrar_balao)
+static GtkWidget *criar_balao(InterfaceApp *ui) {
+    balao_revealer = gtk_revealer_new();
+    gtk_revealer_set_transition_type(GTK_REVEALER(balao_revealer), GTK_REVEALER_TRANSITION_TYPE_SLIDE_UP);
+    gtk_widget_set_halign(balao_revealer, GTK_ALIGN_CENTER); // centralizado...
+    gtk_widget_set_valign(balao_revealer, GTK_ALIGN_END);    // ...lá embaixo
+
+    GtkWidget *caixa = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    adicionar_classe(caixa, "balao");
+
+    balao_texto = gtk_label_new("");
+    gtk_label_set_line_wrap(GTK_LABEL(balao_texto), TRUE);
+    gtk_label_set_max_width_chars(GTK_LABEL(balao_texto), 60);
+
+    balao_btn_desfazer = gtk_button_new_with_label("Desfazer");
+    adicionar_classe(balao_btn_desfazer, "balao-desfazer");
+    g_signal_connect(balao_btn_desfazer, "clicked", G_CALLBACK(ao_clicar_desfazer), ui);
+
+    GtkWidget *fechar = gtk_button_new_with_label("✕");
+    adicionar_classe(fechar, "balao-fechar");
+    gtk_widget_set_tooltip_text(fechar, "Fechar aviso");
+    g_signal_connect(fechar, "clicked", G_CALLBACK(ao_fechar_balao), NULL);
+
+    gtk_box_pack_start(GTK_BOX(caixa), balao_texto, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(caixa), balao_btn_desfazer, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(caixa), fechar, FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(balao_revealer), caixa);
+    return balao_revealer;
+}
+
+// =======================================================
 // PÁGINA 1: PAINEL DE SALAS
 // =======================================================
 
@@ -315,6 +433,151 @@ static gboolean ao_clicar_card(GtkWidget *w, GdkEventButton *ev, gpointer data) 
     return TRUE;
 }
 
+// -------------------------------------------------------
+// Excluir e renomear sala (botões no card do painel)
+// -------------------------------------------------------
+
+// Conta quantas aulas ATIVAS usam a sala (em qualquer dia)
+static int contar_aulas_da_sala(InterfaceApp *ui, const char *sala) {
+    int n = 0;
+    for (int i = 0; i < ui->qtd_alocacoes; i++) {
+        if (ui->alocacoes[i].ativo && strcmp(ui->alocacoes[i].id_sala, sala) == 0) n++;
+    }
+    return n;
+}
+
+static void ao_clicar_excluir_sala(GtkWidget *btn, gpointer data) {
+    InterfaceApp *ui = data;
+    // Copia o nome agora: atualizar_telas() destrói o card (e o botão) mais abaixo
+    char sala[25];
+    copiar_texto(sala, sizeof(sala), g_object_get_data(G_OBJECT(btn), "sala"));
+    preparar_desfazer(ui);
+
+    // Segurança: não deixa excluir sala que ainda tem aula, para nenhuma turma ficar sem sala
+    int aulas = contar_aulas_da_sala(ui, sala);
+    if (aulas > 0) {
+        char titulo[120], detalhe[400];
+        snprintf(titulo, sizeof(titulo), "A sala %s ainda tem %d aula(s) na semana.", sala, aulas);
+        snprintf(detalhe, sizeof(detalhe),
+                 "Para nenhuma turma ficar sem sala, mude essas aulas antes de excluir: "
+                 "vá em \"Planilha: Turma – Horário\", digite %s na busca e use \"Trocar sala\" em cada aula. "
+                 "Depois volte aqui e exclua a sala.", sala);
+        mostrar_mensagem(ui, GTK_MESSAGE_WARNING, titulo, detalhe);
+        return;
+    }
+
+    char titulo[120];
+    snprintf(titulo, sizeof(titulo), "Excluir a sala %s?", sala);
+    if (!confirmar(ui, titulo, "Ela deixa de aparecer no painel e na lista de salas livres. "
+                               "Se precisar dela de novo, é só cadastrar uma aula nela.", "Excluir sala")) return;
+
+    if (excluir_sala(ARQ_SALAS, sala) == 0) {
+        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível excluir a sala.",
+                         "O programa não conseguiu gravar o arquivo " ARQ_SALAS ". Nada foi alterado.");
+        return;
+    }
+    recarregar_salas(ui);
+    atualizar_telas(ui);
+
+    char aviso[100];
+    snprintf(aviso, sizeof(aviso), "Sala %s excluída.", sala);
+    oferecer_desfazer(aviso);
+}
+
+static void ao_clicar_renomear_sala(GtkWidget *btn, gpointer data) {
+    InterfaceApp *ui = data;
+    char antigo[25];
+    copiar_texto(antigo, sizeof(antigo), g_object_get_data(G_OBJECT(btn), "sala"));
+    preparar_desfazer(ui);
+
+    // Janelinha com uma caixa de texto já preenchida com o nome atual
+    GtkWidget *d = gtk_dialog_new_with_buttons("Renomear sala", GTK_WINDOW(ui->window),
+                                               GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                               "Voltar", GTK_RESPONSE_CANCEL,
+                                               "Salvar novo nome", GTK_RESPONSE_OK, NULL);
+    gtk_dialog_set_default_response(GTK_DIALOG(d), GTK_RESPONSE_OK);
+    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(d));
+    gtk_container_set_border_width(GTK_CONTAINER(area), 15);
+    gtk_box_set_spacing(GTK_BOX(area), 8);
+
+    char texto[200];
+    snprintf(texto, sizeof(texto), "Novo nome para a sala %s.\nTodas as aulas desta sala passam a usar o novo nome.", antigo);
+    GtkWidget *lbl = gtk_label_new(texto);
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
+    GtkWidget *entrada = gtk_entry_new();
+    gtk_entry_set_text(GTK_ENTRY(entrada), antigo);
+    gtk_entry_set_max_length(GTK_ENTRY(entrada), 24);           // cabe em id_sala[25]
+    gtk_entry_set_activates_default(GTK_ENTRY(entrada), TRUE);  // Enter = Salvar
+    gtk_box_pack_start(GTK_BOX(area), lbl, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(area), entrada, FALSE, FALSE, 0);
+    gtk_widget_show_all(d);
+
+    int resposta = gtk_dialog_run(GTK_DIALOG(d));
+    char novo[25];
+    char *limpo = g_strstrip(g_strdup(gtk_entry_get_text(GTK_ENTRY(entrada)))); // tira espaços das pontas
+    copiar_texto(novo, sizeof(novo), limpo);
+    g_free(limpo);
+    gtk_widget_destroy(d);
+
+    if (resposta != GTK_RESPONSE_OK || strcmp(novo, antigo) == 0) return;
+    if (novo[0] == '\0') {
+        mostrar_mensagem(ui, GTK_MESSAGE_WARNING, "O nome da sala não pode ficar vazio.", NULL);
+        return;
+    }
+    // Não deixa criar duas salas com o mesmo nome (ignora maiúsculas/minúsculas)
+    if (g_ascii_strcasecmp(novo, antigo) != 0 && sala_conhecida(ui, novo)) {
+        char titulo[120];
+        snprintf(titulo, sizeof(titulo), "Já existe uma sala chamada %s.", novo);
+        mostrar_mensagem(ui, GTK_MESSAGE_WARNING, titulo,
+                         "Escolha outro nome. Se as duas forem a mesma sala, troque a sala das aulas "
+                         "em \"Planilha: Turma – Horário\" e depois exclua a sala que sobrou.");
+        return;
+    }
+
+    // 1º as aulas, 2º o cadastro da sala
+    int alteradas = renomear_sala_nas_alocacoes(ARQ_ALOCACOES, antigo, novo, ui->alocacoes, ui->qtd_alocacoes);
+    if (alteradas < 0) {
+        carregar_dados(ui); // desfaz na memória: lê de novo o que está no disco
+        atualizar_telas(ui);
+        erro_ao_salvar(ui);
+        return;
+    }
+    if (renomear_sala(ARQ_SALAS, antigo, novo) == 0) {
+        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível gravar o novo nome no arquivo de salas.",
+                         "As aulas já foram atualizadas, mas o arquivo " ARQ_SALAS " não pôde ser gravado.");
+    }
+    recarregar_salas(ui);
+    atualizar_telas(ui);
+
+    char aviso[150];
+    snprintf(aviso, sizeof(aviso), "Sala %s agora se chama %s (%d aula(s) atualizada(s)).", antigo, novo, alteradas);
+    oferecer_desfazer(aviso);
+}
+
+// Coloca os botões "Renomear" e "Excluir" na parte de baixo do card
+static void adicionar_botoes_card(GtkWidget *card, const char *sala, InterfaceApp *ui) {
+    GtkWidget *linha = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_widget_set_margin_top(linha, 6);
+
+    GtkWidget *btn_renomear = gtk_button_new_with_label("Renomear");
+    GtkWidget *btn_excluir = gtk_button_new_with_label("Excluir");
+    adicionar_classe(btn_renomear, "card-action");
+    adicionar_classe(btn_excluir, "card-action");
+    adicionar_classe(btn_excluir, "danger");
+    gtk_widget_set_tooltip_text(btn_renomear, "Mudar o nome desta sala (as aulas dela acompanham)");
+    gtk_widget_set_tooltip_text(btn_excluir, "Tirar esta sala do sistema");
+
+    // Cada botão guarda o nome da sala; g_free apaga a cópia quando o botão for destruído
+    g_object_set_data_full(G_OBJECT(btn_renomear), "sala", g_strdup(sala), g_free);
+    g_object_set_data_full(G_OBJECT(btn_excluir), "sala", g_strdup(sala), g_free);
+    g_signal_connect(btn_renomear, "clicked", G_CALLBACK(ao_clicar_renomear_sala), ui);
+    g_signal_connect(btn_excluir, "clicked", G_CALLBACK(ao_clicar_excluir_sala), ui);
+
+    gtk_box_pack_start(GTK_BOX(linha), btn_renomear, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(linha), btn_excluir, FALSE, FALSE, 0);
+    gtk_box_pack_end(GTK_BOX(card), linha, FALSE, FALSE, 0);
+}
+
 static void atualizar_painel(InterfaceApp *ui) {
     GList *filhos = gtk_container_get_children(GTK_CONTAINER(ui->painel_flow));
     for (GList *l = filhos; l; l = l->next) gtk_widget_destroy(GTK_WIDGET(l->data));
@@ -355,6 +618,7 @@ static void atualizar_painel(InterfaceApp *ui) {
             card = criar_card_sala(todas[s].id_sala, "Disponível", TRUE);
             livres++;
         }
+        adicionar_botoes_card(card, todas[s].id_sala, ui);
         GtkWidget *evento = gtk_event_box_new();
         gtk_event_box_set_visible_window(GTK_EVENT_BOX(evento), FALSE);
         gtk_container_add(GTK_CONTAINER(evento), card);
@@ -552,6 +816,7 @@ static GtkWidget *rotulo_form(const char *texto) {
 static void ao_clicar_nova_aula(GtkWidget *btn, gpointer data) {
     (void)btn;
     InterfaceApp *ui = data;
+    preparar_desfazer(ui);
 
     GtkWidget *dialog = gtk_dialog_new_with_buttons("Nova aula", GTK_WINDOW(ui->window),
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -653,6 +918,10 @@ static void ao_clicar_nova_aula(GtkWidget *btn, gpointer data) {
         ui->grade_dia = d < 0 ? 0 : d;
         marcar_pilula(ui->grade_pills, ui->grade_dia);
         atualizar_telas(ui);
+
+        char aviso[300];
+        snprintf(aviso, sizeof(aviso), "Aula cadastrada: %s (turma %s) na sala %s.", nova.disciplina, nova.turma, nova.id_sala);
+        oferecer_desfazer(aviso);
         break;
     }
     gtk_widget_destroy(dialog);
@@ -661,6 +930,7 @@ static void ao_clicar_nova_aula(GtkWidget *btn, gpointer data) {
 // ---------- Trocar sala ----------
 static void trocar_sala_da_aula(InterfaceApp *ui, int idx) {
     AlocacaoTurma aula = ui->alocacoes[idx];
+    preparar_desfazer(ui);
 
     GtkWidget *dialog = gtk_dialog_new_with_buttons("Trocar sala", GTK_WINDOW(ui->window),
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -717,6 +987,10 @@ static void trocar_sala_da_aula(InterfaceApp *ui, int idx) {
         if (r == -2) { mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Aula não encontrada.", "Feche e abra o programa novamente."); break; }
         if (r == 0) { erro_ao_salvar(ui); continue; }
         atualizar_telas(ui);
+
+        char aviso[300];
+        snprintf(aviso, sizeof(aviso), "%s (turma %s) mudou da sala %s para a %s.", aula.disciplina, aula.turma, aula.id_sala, temp.id_sala);
+        oferecer_desfazer(aviso);
         break;
     }
     gtk_widget_destroy(dialog);
@@ -749,9 +1023,16 @@ static void ao_clicar_cancelar_aula(GtkWidget *btn, gpointer data) {
              a->disciplina, a->turma, dia_extenso(a->dia_semana), a->hora_inicio, a->hora_fim, a->id_sala);
     if (!confirmar(ui, "Cancelar esta aula?", det, "Cancelar aula")) return;
 
+    preparar_desfazer(ui);
     int r = cancelar_alocacao(ARQ_ALOCACOES, a->id_alocacao, ui->alocacoes, ui->qtd_alocacoes);
     if (r == 0) erro_ao_salvar(ui);
     atualizar_telas(ui);
+
+    if (r == 1) {
+        char aviso[300];
+        snprintf(aviso, sizeof(aviso), "Aula cancelada: %s (turma %s). A sala %s ficou livre.", a->disciplina, a->turma, a->id_sala);
+        oferecer_desfazer(aviso);
+    }
 }
 
 // ---------- Importar planilha ----------
@@ -764,6 +1045,7 @@ static gboolean mesma_aula(AlocacaoTurma *x, AlocacaoTurma *y) {
 static void ao_clicar_importar(GtkWidget *btn, gpointer data) {
     (void)btn;
     InterfaceApp *ui = data;
+    preparar_desfazer(ui);
 
     GtkWidget *chooser = gtk_file_chooser_dialog_new("Importar planilha (arquivo CSV)", GTK_WINDOW(ui->window),
         GTK_FILE_CHOOSER_ACTION_OPEN, "Cancelar", GTK_RESPONSE_CANCEL, "Importar", GTK_RESPONSE_ACCEPT, NULL);
@@ -899,6 +1181,7 @@ static void ao_clicar_importar(GtkWidget *btn, gpointer data) {
 
     mostrar_mensagem(ui, choques ? GTK_MESSAGE_WARNING : GTK_MESSAGE_INFO, "Importação concluída.", rel->str);
     g_string_free(rel, TRUE);
+    oferecer_desfazer("Planilha importada. Se foi o arquivo errado, clique em Desfazer.");
 }
 
 static GtkWidget *criar_botao_acao(const char *rotulo, const char *dica, GCallback cb, InterfaceApp *ui) {
@@ -1055,18 +1338,6 @@ static GtkWidget* criar_pagina_salas_livres(InterfaceApp *ui) {
 }
 
 // =======================================================
-// PÁGINA 4: RESERVAS (ainda não implementada no backend)
-// =======================================================
-
-static GtkWidget* criar_pagina_reservas(void) {
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_container_set_border_width(GTK_CONTAINER(vbox), 25);
-    criar_cabecalho(vbox, "Reservas", "Reservas avulsas (provas, eventos, reposições) estarão disponíveis em uma próxima versão. "
-                    "Por enquanto, use \"+ Nova aula\" na planilha Turma – Horário.");
-    return vbox;
-}
-
-// =======================================================
 // JANELA PRINCIPAL
 // =======================================================
 
@@ -1076,7 +1347,7 @@ void atualizar_telas(InterfaceApp *ui) {
     atualizar_salas_livres(ui);
 }
 
-static const char *NOMES_PAGINAS[NUM_PAGINAS] = {"painel", "grade", "livres", "reservas"};
+static const char *NOMES_PAGINAS[NUM_PAGINAS] = {"painel", "grade", "livres"};
 
 static void ao_navegar(GtkWidget *btn, gpointer data) {
     InterfaceApp *ui = data;
@@ -1118,7 +1389,7 @@ void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
 
     // Botões de Navegação da Sidebar
     const char *rotulos_nav[NUM_PAGINAS] = {"田  Painel de salas", "📄  Planilha: Turma – Horário",
-                                            "🏛  Planilha: Salas Livres", "📅  Reservas"};
+                                            "🏛  Planilha: Salas Livres"};
     for (int i = 0; i < NUM_PAGINAS; i++) {
         ui->nav_btns[i] = gtk_button_new_with_label(rotulos_nav[i]);
         adicionar_classe(ui->nav_btns[i], "nav-btn");
@@ -1138,9 +1409,12 @@ void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
     gtk_stack_add_named(GTK_STACK(ui->stack), criar_pagina_painel_salas(ui), "painel");
     gtk_stack_add_named(GTK_STACK(ui->stack), criar_pagina_grade(ui), "grade");
     gtk_stack_add_named(GTK_STACK(ui->stack), criar_pagina_salas_livres(ui), "livres");
-    gtk_stack_add_named(GTK_STACK(ui->stack), criar_pagina_reservas(), "reservas");
 
-    gtk_box_pack_start(GTK_BOX(main_box), ui->stack, TRUE, TRUE, 0);
+    // O "overlay" deixa o balão flutuar por cima das telas
+    GtkWidget *overlay = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(overlay), ui->stack);
+    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), criar_balao(ui));
+    gtk_box_pack_start(GTK_BOX(main_box), overlay, TRUE, TRUE, 0);
 
     atualizar_telas(ui);
     gtk_widget_show_all(ui->window);

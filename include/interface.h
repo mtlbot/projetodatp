@@ -5,7 +5,7 @@
 #include "modelos.h"
 
 #define NUM_DIAS 6
-#define NUM_PAGINAS 4
+#define NUM_PAGINAS 3
 
 // Estado da aplicação: widgets da janela + dados carregados em RAM pelo backend
 typedef struct {

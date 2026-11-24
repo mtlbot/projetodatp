@@ -113,3 +113,19 @@ int cancelar_alocacao(const char *caminho_arquivo, int id_alocacao, AlocacaoTurm
     }
     return -2; // ID não existe
 }
+
+int renomear_sala_nas_alocacoes(const char *caminho_arquivo, const char *id_antigo, const char *id_novo,
+                                AlocacaoTurma *lista, int qtd_total) {
+    int alteradas = 0;
+    for (int i = 0; i < qtd_total; i++) {
+        if (strcmp(lista[i].id_sala, id_antigo) == 0) {
+            memset(lista[i].id_sala, 0, sizeof(lista[i].id_sala));
+            strncpy(lista[i].id_sala, id_novo, sizeof(lista[i].id_sala) - 1);
+            alteradas++;
+        }
+    }
+    if (alteradas == 0) return 0; // Nenhuma aula usava essa sala: nada para salvar
+
+    if (!salvar_alocacoes(caminho_arquivo, lista, qtd_total)) return -1;
+    return alteradas;
+}
