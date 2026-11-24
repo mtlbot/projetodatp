@@ -674,7 +674,7 @@ static void atualizar_painel(InterfaceApp *ui) {
 
     if (n == 0) {
         GtkWidget *vazio = gtk_label_new("Nenhuma sala ainda. Vá em \"Planilha: Turma – Horário\" e clique em "
-                                         "\"Importar planilha (CSV)\" para carregar a grade do semestre.");
+                                         "\"Importar (CSV ou PDF)\" para carregar a grade do semestre.");
         gtk_label_set_line_wrap(GTK_LABEL(vazio), TRUE);
         gtk_flow_box_insert(GTK_FLOW_BOX(ui->painel_flow), vazio, -1);
     }
@@ -1197,8 +1197,8 @@ static void usar_sala_livre(InterfaceApp *ui, const char *sala, int dia, const c
     GtkWidget *d = gtk_message_dialog_new(GTK_WINDOW(ui->window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
                                           GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "%s", titulo);
     gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(d), "%s", det);
-    gtk_dialog_add_buttons(GTK_DIALOG(d), "Voltar", GTK_RESPONSE_CANCEL, "Ver aulas da sala no dia", VER,
-                           "Trazer uma aula para cá", MOVER, "Cadastrar nova aula aqui", NOVA, NULL);
+    gtk_dialog_add_buttons(GTK_DIALOG(d), "Voltar", GTK_RESPONSE_CANCEL, "Ver aulas do dia", VER,
+                           "Trazer aula para cá", MOVER, "Nova aula aqui", NOVA, NULL);
     gtk_dialog_set_default_response(GTK_DIALOG(d), NOVA);
     int r = gtk_dialog_run(GTK_DIALOG(d));
     gtk_widget_destroy(d);
