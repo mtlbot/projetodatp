@@ -19,6 +19,7 @@ int salvar_alocacoes(const char *caminho_arquivo, AlocacaoTurma *lista, int tota
 int adicionar_alocacao(AlocacaoTurma nova, AlocacaoTurma *lista, int *qtd, int limite_maximo, const char *caminho_arquivo);
 
 // Altera a sala de uma turma. Valida se o ID existe antes de tentar salvar.
+// Retorna 1 (sucesso), -1 (conflito), -2 (ID não encontrado) ou 0 (erro ao salvar).
 int atualizar_sala_alocacao(const char *caminho_arquivo, int id_alocacao, const char *nova_sala, AlocacaoTurma *lista, int qtd_total);
 
 // Motor interno para varrer o array buscando sobreposição de dia, hora e sala.
@@ -30,6 +31,7 @@ int verificar_conflito(AlocacaoTurma nova, AlocacaoTurma *lista, int qtd);
 // =======================================================
 
 // Bloqueia o cadastro se o usuário tentar salvar uma sala sem nome ou com caracteres inválidos.
+// Retorna 1 (sucesso), 0 (nome vazio/erro de disco) ou -1 (sala já cadastrada).
 int cadastrar_nova_sala(const char *caminho_arquivo, SalaFisica nova_sala);
 
 // Retorna todas as salas. Possui trava de segurança para o vetor do frontend.
@@ -40,5 +42,27 @@ int buscar_salas_livres(const char *dia_semana, const char *hora_inicio, const c
                         SalaFisica *salas_disponiveis, int *qtd_livres,
                         AlocacaoTurma *lista, int qtd_total_alocacoes,
                         SalaFisica *todas_salas, int total_salas);
+
+// =======================================================
+// MODULO 3: IMPORTACAO E FUNCOES DE APOIO (importador.c / alocacao_crud.c)
+// =======================================================
+
+// Importa a planilha exportada em CSV (Google Sheets/Excel).
+// Aceita o formato da planilha "TURMA - HORARIO" (DEPTO,COMPONENTE,TURMA,DOCENTE,"SEG - 07:10 as 08:50",SALA,...)
+// e o formato simples DEPTO;COMPONENTE;TURMA;DOCENTE;DIA;INICIO;FIM;SALA. Retorna 1 (sucesso) ou 0 (erro ao abrir).
+int importar_grade_csv(const char *caminho_arquivo, AlocacaoTurma *lista, int *qtd, int limite_maximo);
+
+// Igual a importar_grade_csv, mas tambem informa quantas linhas foram ignoradas (cabecalho, linhas vazias ou invalidas).
+int importar_grade_csv_detalhado(const char *caminho_arquivo, AlocacaoTurma *lista, int *qtd, int limite_maximo, int *linhas_ignoradas);
+
+// Igual a verificar_conflito, mas devolve a posicao (indice) da turma que ocupa a sala, ou -1 se nao houver conflito.
+// Usado pela interface para dizer ao funcionario QUEM esta ocupando a sala.
+int buscar_conflito(AlocacaoTurma nova, AlocacaoTurma *lista, int qtd);
+
+// Marca uma alocacao como cancelada (ativo = 0) e salva. Retorna 1 (sucesso), 0 (erro ao salvar) ou -2 (ID nao encontrado).
+int cancelar_alocacao(const char *caminho_arquivo, int id_alocacao, AlocacaoTurma *lista, int qtd_total);
+
+// Devolve o proximo ID livre (maior ID existente + 1).
+int proximo_id_alocacao(AlocacaoTurma *lista, int qtd);
 
 #endif

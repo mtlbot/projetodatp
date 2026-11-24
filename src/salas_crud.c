@@ -6,6 +6,19 @@ int cadastrar_nova_sala(const char *caminho_arquivo, SalaFisica nova_sala) {
     // Preven��o de erro humano: n�o cadastrar sala sem nome
     if (strlen(nova_sala.id_sala) == 0) return 0;
 
+    // Prevenção de duplicidade: não cadastra a mesma sala duas vezes
+    FILE *existente = fopen(caminho_arquivo, "rb");
+    if (existente != NULL) {
+        SalaFisica s;
+        while (fread(&s, sizeof(SalaFisica), 1, existente) == 1) {
+            if (strcmp(s.id_sala, nova_sala.id_sala) == 0) {
+                fclose(existente);
+                return -1; // Sala já cadastrada
+            }
+        }
+        fclose(existente);
+    }
+
     FILE *arquivo = fopen(caminho_arquivo, "ab");
     if (arquivo == NULL) return 0; // Preven��o: falha de disco/permiss�o
 
@@ -38,6 +51,9 @@ int buscar_salas_livres(const char *dia_semana, const char *hora_inicio, const c
 
     for (int i = 0; i < total_salas; i++) {
         int sala_ocupada = 0;
+
+        // Sala em reforma/inutilizada nunca aparece como livre
+        if (todas_salas[i].status_manutencao == 1) continue;
 
         // Compara a sala atual do loop com todas as turmas carregadas na mem�ria
         for (int j = 0; j < qtd_total_alocacoes; j++) {

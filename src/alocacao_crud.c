@@ -26,7 +26,7 @@ int salvar_alocacoes(const char *caminho_arquivo, AlocacaoTurma *lista, int tota
     return (escrito == (size_t)total) ? 1 : 0;
 }
 
-int verificar_conflito(AlocacaoTurma nova, AlocacaoTurma *lista, int qtd) {
+int buscar_conflito(AlocacaoTurma nova, AlocacaoTurma *lista, int qtd) {
     for (int i = 0; i < qtd; i++) {
         if (lista[i].ativo == 1 &&
             lista[i].id_alocacao != nova.id_alocacao && // Evita comparar a turma com ela mesma numa edição
@@ -34,11 +34,23 @@ int verificar_conflito(AlocacaoTurma nova, AlocacaoTurma *lista, int qtd) {
             strcmp(lista[i].id_sala, nova.id_sala) == 0) {
 
             if (strcmp(lista[i].hora_fim, nova.hora_inicio) > 0 && strcmp(lista[i].hora_inicio, nova.hora_fim) < 0) {
-                return 1; // Retorna 1 se bater no mesmo dia, sala e horário.
+                return i; // Devolve a posição da turma que já ocupa a sala nesse dia/horário.
             }
         }
     }
-    return 0;
+    return -1;
+}
+
+int verificar_conflito(AlocacaoTurma nova, AlocacaoTurma *lista, int qtd) {
+    return (buscar_conflito(nova, lista, qtd) >= 0) ? 1 : 0; // 1 se bater no mesmo dia, sala e horário.
+}
+
+int proximo_id_alocacao(AlocacaoTurma *lista, int qtd) {
+    int maior = 0;
+    for (int i = 0; i < qtd; i++) {
+        if (lista[i].id_alocacao > maior) maior = lista[i].id_alocacao;
+    }
+    return maior + 1;
 }
 
 int adicionar_alocacao(AlocacaoTurma nova, AlocacaoTurma *lista, int *qtd, int limite_maximo, const char *caminho_arquivo) {
@@ -51,7 +63,11 @@ int adicionar_alocacao(AlocacaoTurma nova, AlocacaoTurma *lista, int *qtd, int l
     lista[*qtd] = nova;
     (*qtd)++;
 
-    return salvar_alocacoes(caminho_arquivo, lista, *qtd);
+    if (!salvar_alocacoes(caminho_arquivo, lista, *qtd)) {
+        (*qtd)--; // Não conseguiu gravar no disco: desfaz na memória para RAM e arquivo continuarem iguais.
+        return 0;
+    }
+    return 1;
 }
 
 int atualizar_sala_alocacao(const char *caminho_arquivo, int id_alocacao, const char *nova_sala, AlocacaoTurma *lista, int qtd_total) {
@@ -64,16 +80,36 @@ int atualizar_sala_alocacao(const char *caminho_arquivo, int id_alocacao, const 
         }
     }
 
-    if (index_encontrado == -1) return 0;
+    if (index_encontrado == -1) return -2; // ID não existe
 
     // Cria um clone na memória para checar o conflito antes de salvar a alteração real
     AlocacaoTurma temporaria = lista[index_encontrado];
-    strcpy(temporaria.id_sala, nova_sala);
+    strncpy(temporaria.id_sala, nova_sala, sizeof(temporaria.id_sala) - 1);
+    temporaria.id_sala[sizeof(temporaria.id_sala) - 1] = '\0';
 
     if (verificar_conflito(temporaria, lista, qtd_total) == 1) {
         return -1; // Conflito: a nova sala que a secretaria quer já está ocupada.
     }
 
-    strcpy(lista[index_encontrado].id_sala, nova_sala);
-    return salvar_alocacoes(caminho_arquivo, lista, qtd_total);
+    AlocacaoTurma original = lista[index_encontrado];
+    lista[index_encontrado] = temporaria;
+    if (!salvar_alocacoes(caminho_arquivo, lista, qtd_total)) {
+        lista[index_encontrado] = original; // Falha ao gravar: volta ao estado anterior.
+        return 0;
+    }
+    return 1;
+}
+
+int cancelar_alocacao(const char *caminho_arquivo, int id_alocacao, AlocacaoTurma *lista, int qtd_total) {
+    for (int i = 0; i < qtd_total; i++) {
+        if (lista[i].id_alocacao == id_alocacao) {
+            lista[i].ativo = 0;
+            if (!salvar_alocacoes(caminho_arquivo, lista, qtd_total)) {
+                lista[i].ativo = 1; // Falha ao gravar: a aula continua ativa.
+                return 0;
+            }
+            return 1;
+        }
+    }
+    return -2; // ID não existe
 }
