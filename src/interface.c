@@ -1,4 +1,5 @@
 #include <gtk/gtk.h>
+#include <glib/gstdio.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -779,9 +780,26 @@ static void ao_clicar_importar(GtkWidget *btn, gpointer data) {
     gtk_widget_destroy(chooser);
     if (arquivo == NULL) return;
 
-    int lidas = 0, ignoradas = 0;
-    int ok = importar_grade_csv_detalhado(arquivo, buffer_importacao, &lidas, MAX_ALOCACOES, &ignoradas);
+    // O GTK devolve o caminho em UTF-8, mas o fopen() do Windows não entende acentos nesse formato
+    // (ex.: "C:\\Users\\Vinícius\\Área de Trabalho\\aulas.csv"). Por isso o arquivo é lido pela GLib,
+    // que aceita qualquer caminho, e copiado para data/importacao_temp.csv (caminho simples) antes de
+    // chamar o backend. Assim o backend continua usando fopen() normal, em Windows e Linux.
+    char *conteudo = NULL;
+    gsize tamanho = 0;
+    gboolean leu = g_file_get_contents(arquivo, &conteudo, &tamanho, NULL);
     g_free(arquivo);
+    const char *temporario = "data/importacao_temp.csv";
+    if (!leu || !g_file_set_contents(temporario, conteudo, (gssize)tamanho, NULL)) {
+        g_free(conteudo);
+        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível abrir o arquivo.",
+                         "Confira se o arquivo não está aberto em outro programa (como o Excel) e tente de novo.");
+        return;
+    }
+    g_free(conteudo);
+
+    int lidas = 0, ignoradas = 0;
+    int ok = importar_grade_csv_detalhado(temporario, buffer_importacao, &lidas, MAX_ALOCACOES, &ignoradas);
+    g_remove(temporario);
 
     if (!ok) {
         mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível abrir o arquivo.",
