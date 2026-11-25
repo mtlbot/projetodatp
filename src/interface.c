@@ -1615,7 +1615,7 @@ static GtkWidget* criar_pagina_grade(InterfaceApp *ui) {
     gtk_box_pack_start(GTK_BOX(linha), criar_barra_dias(ui->grade_pills, ui->grade_dia, G_CALLBACK(ao_trocar_dia_grade), ui), FALSE, FALSE, 0);
     ui->grade_busca = gtk_search_entry_new();
     gtk_entry_set_placeholder_text(GTK_ENTRY(ui->grade_busca), "Buscar disciplina, docente, sala ou turma");
-    gtk_entry_set_width_chars(GTK_ENTRY(ui->grade_busca), 36);
+    gtk_entry_set_width_chars(GTK_ENTRY(ui->grade_busca), 30);
     g_signal_connect(ui->grade_busca, "search-changed", G_CALLBACK(ao_buscar_grade), ui);
     gtk_box_pack_end(GTK_BOX(linha), ui->grade_busca, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(vbox), linha, FALSE, FALSE, 0);
@@ -1798,6 +1798,9 @@ static GtkWidget* criar_pagina_salas_livres(InterfaceApp *ui) {
     int bloco = gtk_combo_box_get_active(GTK_COMBO_BOX(ui->painel_combo_hora));
     gtk_combo_box_set_active(GTK_COMBO_BOX(ui->livres_combo_ini), bloco + 1); // +1 por causa do "Todos"
     gtk_combo_box_set_active(GTK_COMBO_BOX(ui->livres_combo_fim), bloco);
+    // Caixas de horário mais estreitas: com a letra maior a linha ainda cabe numa tela de notebook (1366 px)
+    gtk_entry_set_width_chars(GTK_ENTRY(entrada_do_combo(ui->livres_combo_ini)), 12);
+    gtk_entry_set_width_chars(GTK_ENTRY(entrada_do_combo(ui->livres_combo_fim)), 6);
 
     gtk_box_pack_start(GTK_BOX(linha), gtk_label_new("Dia:"), FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(linha), ui->livres_combo_dia, FALSE, FALSE, 0);
@@ -1962,10 +1965,20 @@ static void atualizar_notificacoes(InterfaceApp *ui) {
     limpar_lista(ui->avisos_historico);
     int n = ler_historico(ARQ_HISTORICO, historico_linhas, 200);
     for (int i = 0; i < n; i++) {
+        // Linha: "data | texto" (antes do login existir) ou "data | Nome | texto"
         char *sep = strstr(historico_linhas[i], " | ");
         if (sep) {
             *sep = '\0';
-            adicionar_linha_aviso(ui->avisos_historico, sep + 3, historico_linhas[i], NULL, 0, ui);
+            char *resto = sep + 3;
+            char *sep2 = strstr(resto, " | ");
+            if (sep2) {
+                *sep2 = '\0';
+                char quando_quem[TAM_LINHA_HISTORICO + 16];
+                snprintf(quando_quem, sizeof(quando_quem), "%s  ·  por %s", historico_linhas[i], resto);
+                adicionar_linha_aviso(ui->avisos_historico, sep2 + 3, quando_quem, NULL, 0, ui);
+            } else {
+                adicionar_linha_aviso(ui->avisos_historico, resto, historico_linhas[i], NULL, 0, ui);
+            }
         } else {
             adicionar_linha_aviso(ui->avisos_historico, historico_linhas[i], NULL, NULL, 0, ui);
         }
@@ -2054,7 +2067,7 @@ static void ao_clicar_limpar_historico(GtkWidget *btn, gpointer data) {
         g_free(copia);
         return;
     }
-    atualizar_notificacoes(ui);
+    registrar_no_historico("Apagou o histórico de mudanças"); // fica registrado quem apagou
 
     char aviso[300];
     if (copia) snprintf(aviso, sizeof(aviso), "Histórico apagado. Uma cópia ficou em %s.", copia);
@@ -2355,7 +2368,8 @@ static GtkWidget* criar_pagina_ajuda(InterfaceApp *ui) {
         "3. Clique numa sala verde para cadastrar uma aula nela ou trazer uma aula para ela.\n"
         "4. Em \"Salas livres\", use \"Todos\" para ver qualquer dia ou horário de uma vez.\n"
         "5. Errou? Clique em \"Desfazer\" no aviso que aparece embaixo da tela.\n"
-        "6. Em \"Notificações\" ficam as turmas sem sala, os choques de horário e o histórico de tudo o que mudou.",
+        "6. Em \"Notificações\" ficam as turmas sem sala, os choques de horário e o histórico de tudo o que mudou, com o nome de quem mudou.\n"
+        "7. Vai sair do computador? Clique em \"Trocar de usuário\", no pé da barra lateral, para a próxima pessoa entrar com o nome dela.",
         NULL), FALSE, FALSE, 0);
 
     GtkWidget *b_sem = criar_botao_acao("Mudar semestre", "Escolher o semestre ou deixar automático", G_CALLBACK(ao_clicar_semestre), ui);
@@ -2407,11 +2421,28 @@ static void ao_navegar(GtkWidget *btn, gpointer data) {
     ir_para_pagina(data, GPOINTER_TO_INT(g_object_get_data(G_OBJECT(btn), "pagina")));
 }
 
-void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
-    carregar_css();
+void mostrar_usuario_na_tela(InterfaceApp *ui) {
+    if (ui->lbl_usuario == NULL) return;
+    char texto[TAM_NOME_USUARIO + 16];
+    snprintf(texto, sizeof(texto), "👤  %s", usuario_atual());
+    gtk_label_set_text(GTK_LABEL(ui->lbl_usuario), texto);
+    gtk_widget_set_tooltip_text(ui->lbl_usuario, usuario_atual());
+}
 
+// "Trocar de usuário": registra a saída, esconde a janela e volta para o login
+static void ao_trocar_usuario(GtkWidget *btn, gpointer data) {
+    (void)btn;
+    InterfaceApp *ui = data;
+    registrar_historico(ARQ_HISTORICO, "Saiu do sistema");
+    definir_usuario(NULL);
+    gtk_revealer_set_reveal_child(GTK_REVEALER(balao_revealer), FALSE); // o balão não "vaza" para a próxima pessoa
+    gtk_widget_hide(ui->window);
+    mostrar_login(gtk_window_get_application(GTK_WINDOW(ui->window)), ui);
+}
+
+void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
     ui->window = gtk_application_window_new(app);
-    gtk_window_set_title(GTK_WINDOW(ui->window), "Controle de Salas - POLI-UPE");
+    gtk_window_set_title(GTK_WINDOW(ui->window), "DATP 360 - POLI-UPE");
     gtk_window_set_default_size(GTK_WINDOW(ui->window), 1200, 720);
     gtk_window_set_icon_from_file(GTK_WINDOW(ui->window), "icone.png", NULL); // ícone da janela e da barra de tarefas
 
@@ -2421,10 +2452,10 @@ void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
 
     // --- BARRA LATERAL (SIDEBAR) ---
     GtkWidget *sidebar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_widget_set_size_request(sidebar, 250, -1);
+    gtk_widget_set_size_request(sidebar, 276, -1);
     adicionar_classe(sidebar, "sidebar");
 
-    GtkWidget *lbl_brand = gtk_label_new("Controle\nde Salas");
+    GtkWidget *lbl_brand = gtk_label_new("DATP 360");
     adicionar_classe(lbl_brand, "sidebar-title");
     gtk_label_set_xalign(GTK_LABEL(lbl_brand), 0.0);
 
@@ -2450,6 +2481,22 @@ void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
         g_signal_connect(ui->nav_btns[i], "clicked", G_CALLBACK(ao_navegar), ui);
         gtk_box_pack_start(GTK_BOX(sidebar), ui->nav_btns[i], FALSE, FALSE, 0);
     }
+
+    // Pé da barra lateral: quem está usando o sistema + "Trocar de usuário"
+    GtkWidget *btn_trocar = gtk_button_new_with_label("Trocar de usuário");
+    adicionar_classe(btn_trocar, "semestre-btn");
+    adicionar_classe(btn_trocar, "trocar-usuario");
+    gtk_widget_set_halign(btn_trocar, GTK_ALIGN_START);
+    gtk_widget_set_tooltip_text(btn_trocar, "Sair e voltar para a tela de login (outra pessoa pode entrar)");
+    g_signal_connect(btn_trocar, "clicked", G_CALLBACK(ao_trocar_usuario), ui);
+    gtk_box_pack_end(GTK_BOX(sidebar), btn_trocar, FALSE, FALSE, 0);
+
+    ui->lbl_usuario = gtk_label_new("");
+    adicionar_classe(ui->lbl_usuario, "usuario-logado");
+    gtk_label_set_xalign(GTK_LABEL(ui->lbl_usuario), 0.0);
+    gtk_label_set_ellipsize(GTK_LABEL(ui->lbl_usuario), PANGO_ELLIPSIZE_END);
+    gtk_box_pack_end(GTK_BOX(sidebar), ui->lbl_usuario, FALSE, FALSE, 0);
+    mostrar_usuario_na_tela(ui);
 
     gtk_box_pack_start(GTK_BOX(main_box), sidebar, FALSE, FALSE, 0);
 

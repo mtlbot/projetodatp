@@ -8,6 +8,32 @@
 // =======================================================
 // Cada acao do sistema vira uma linha de texto:  24/11/2026 19:52 | Aula cancelada: ...
 // Arquivo de texto (e nao binario) de proposito: da para abrir no Bloco de Notas.
+// Depois do login a linha tambem leva o nome de quem fez a mudanca:
+//   25/11/2026 17:40 | Maria | Aula cancelada: ...
+
+// Nome de quem entrou no sistema (vazio = ninguem logado)
+static char usuario_logado[TAM_NOME_USUARIO] = "";
+
+void definir_usuario(const char *nome) {
+    int i = 0, j = 0;
+    if (nome != NULL) {
+        for (i = 0; nome[i] != '\0' && j < TAM_NOME_USUARIO - 1; i++) {
+            // '|' separa as partes da linha do historico: troca por '/' para nao confundir a leitura
+            usuario_logado[j++] = (nome[i] == '|') ? '/' : nome[i];
+        }
+    }
+    // Nome grande demais e cortou no meio de uma letra com acento (UTF-8 usa 2 bytes ou mais):
+    // tira o pedaco que sobrou da letra
+    if (nome != NULL && nome[i] != '\0' && ((unsigned char)nome[i] & 0xC0) == 0x80) {
+        while (j > 0 && ((unsigned char)usuario_logado[j - 1] & 0xC0) == 0x80) j--;
+        if (j > 0 && ((unsigned char)usuario_logado[j - 1] & 0xC0) == 0xC0) j--;
+    }
+    usuario_logado[j] = '\0';
+}
+
+const char *usuario_atual(void) {
+    return usuario_logado;
+}
 
 int registrar_historico(const char *caminho_arquivo, const char *texto) {
     FILE *f = fopen(caminho_arquivo, "ab"); // "a" = acrescenta no fim, sem apagar o que ja tem
@@ -18,7 +44,8 @@ int registrar_historico(const char *caminho_arquivo, const char *texto) {
     struct tm *t = localtime(&agora);
     strftime(quando, sizeof(quando), "%d/%m/%Y %H:%M", t);
 
-    fprintf(f, "%s | %s\n", quando, texto);
+    if (usuario_logado[0] != '\0') fprintf(f, "%s | %s | %s\n", quando, usuario_logado, texto);
+    else fprintf(f, "%s | %s\n", quando, texto);
     fclose(f);
     return 1;
 }

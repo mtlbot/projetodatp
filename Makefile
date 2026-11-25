@@ -1,10 +1,10 @@
-# Projeto DATP - Controle de Salas POLI-UPE
+# DATP 360 - Controle de salas e laboratórios da POLI-UPE
 # Linux:          make        (gera bin/app)
 # Windows/MSYS2:  make        (no terminal "MSYS2 MINGW64"; gera bin/datp_app.exe)
 #                 Pacotes:    pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkgconf make
 #                 Leitura de PDF (biblioteca): pacman -S mingw-w64-x86_64-poppler   (Linux: sudo apt install libpoppler-glib-dev)
 #
-# make pacote  (Windows/MSYS2): monta a pasta ControleDeSalas/ com o programa e TUDO que ele precisa
+# make pacote  (Windows/MSYS2): monta a pasta DATP360/ com o programa e TUDO que ele precisa
 #              (DLLs do GTK e da Poppler, ícones). Essa pasta roda em qualquer Windows, sem o MSYS2:
 #              copie para o computador do DATP e abra bin/datp_app.exe.
 
@@ -44,7 +44,7 @@ clean:
 # ---------------------------------------------------------------
 # Pacote para Windows (rodar no terminal MSYS2 MINGW64)
 # ---------------------------------------------------------------
-PACOTE = ControleDeSalas
+PACOTE = DATP360
 MINGW = /mingw64
 
 # Copia para $(PACOTE)/bin todas as DLLs do MSYS2 que um .exe/.dll usa

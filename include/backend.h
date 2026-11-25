@@ -97,7 +97,15 @@ int inverter_salas(const char *caminho_arquivo, int id_a, int id_b, AlocacaoTurm
 // O arquivo pode ser importado de volta. Retorna 1 (sucesso) ou 0 (erro ao gravar).
 int exportar_grade_csv(const char *caminho_arquivo, AlocacaoTurma *lista, int qtd);
 
-// Acrescenta uma linha "dd/mm/aaaa hh:mm | texto" no arquivo de historico. Retorna 1 ou 0.
+// Guarda o nome de quem fez login: a partir dai cada linha do historico leva esse nome.
+// Com NULL ou "" ninguem fica logado (usado ao sair do sistema).
+void definir_usuario(const char *nome);
+
+// Nome de quem esta logado agora ("" se ninguem).
+const char *usuario_atual(void);
+
+// Acrescenta uma linha "dd/mm/aaaa hh:mm | Nome | texto" no arquivo de historico
+// (sem ninguem logado: "dd/mm/aaaa hh:mm | texto"). Retorna 1 ou 0.
 int registrar_historico(const char *caminho_arquivo, const char *texto);
 
 // Le as ultimas "max" linhas do historico, a mais recente primeiro. Retorna quantas leu.
