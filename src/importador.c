@@ -185,6 +185,7 @@ int importar_grade_csv_detalhado(const char *caminho_arquivo, AlocacaoTurma *lis
 
         // Separador: ';' (Excel em português) ou ',' (Google Sheets)
         char separador = strchr(linha, ';') ? ';' : ',';
+        int cabecalho = strstr(linha, "COMPONENTE") != NULL;   // linha de títulos das colunas
         char *campos[MAX_CAMPOS];
         int n = dividir_campos(linha, separador, campos, MAX_CAMPOS);
 
@@ -217,8 +218,9 @@ int importar_grade_csv_detalhado(const char *caminho_arquivo, AlocacaoTurma *lis
             nova.ativo = 1;
             lista[*qtd] = nova;
             (*qtd)++;
-        } else if (linhas_ignoradas && linha[0] != '\0' && strspn(linha, ",; ") != strlen(linha)) {
-            (*linhas_ignoradas)++; // conta só linhas com conteúdo (cabeçalho, dados incompletos)
+        } else if (linhas_ignoradas && linha[0] != '\0' && strspn(linha, ",; ") != strlen(linha) &&
+                   !cabecalho) {
+            (*linhas_ignoradas)++; // conta só linhas com dados incompletos (o cabeçalho não conta como erro)
         }
     }
 
