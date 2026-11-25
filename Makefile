@@ -6,7 +6,7 @@
 #
 # make pacote  (Windows/MSYS2): monta a pasta ControleDeSalas/ com o programa e TUDO que ele precisa
 #              (DLLs do GTK, ícones, leitor de PDF). Essa pasta roda em qualquer Windows, sem o MSYS2:
-#              copie para o computador do DATP, abra bin/datp_app.exe e use Ajuda > Criar atalho.
+#              copie para o computador do DATP e abra bin/datp_app.exe.
 
 CC = gcc
 CFLAGS = -Wall -Wextra -g -Iinclude $(shell pkg-config --cflags gtk+-3.0)
@@ -18,7 +18,7 @@ ifeq ($(OS),Windows_NT)
     TARGET = bin/datp_app.exe
     # -mwindows: abre só a janela, sem o terminal preto atrás
     LIBS += -mwindows
-    # Ícone do .exe (aparece no Explorer, na barra de tarefas e no atalho)
+    # Ícone do .exe (aparece no Explorer e na barra de tarefas)
     RES = bin/icone.res
 else
     TARGET = bin/app
@@ -70,6 +70,6 @@ pacote: $(TARGET)
 	-cp data/*.dat data/historico.txt $(PACOTE)/data/ 2>/dev/null
 	@echo ""
 	@echo "Pronto! A pasta $(PACOTE) tem o sistema completo."
-	@echo "Copie a pasta para o computador do DATP, abra $(PACOTE)/bin/datp_app.exe e use Ajuda > Criar atalho."
+	@echo "Copie a pasta para o computador do DATP, abra $(PACOTE)/bin/datp_app.exe."
 
 .PHONY: all run clean pacote
