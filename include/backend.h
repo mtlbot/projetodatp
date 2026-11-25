@@ -78,6 +78,10 @@ int renomear_sala(const char *caminho_arquivo, const char *id_antigo, const char
 int renomear_sala_nas_alocacoes(const char *caminho_arquivo, const char *id_antigo, const char *id_novo,
                                 AlocacaoTurma *lista, int qtd_total);
 
+// Coloca (em_manutencao = 1) ou tira (0) uma sala da manutencao e salva.
+// Se a sala so existia na grade, ela e cadastrada em salas.dat. Retorna 1 (sucesso) ou 0 (erro).
+int definir_manutencao_sala(const char *caminho_arquivo, const char *id_sala, int em_manutencao);
+
 // Grava o vetor inteiro de salas no arquivo (substitui o conteudo). Retorna 1 (sucesso) ou 0 (erro de disco).
 int gravar_todas_salas(const char *caminho_arquivo, SalaFisica *lista, int qtd);
 

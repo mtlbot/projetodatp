@@ -591,8 +591,49 @@ static void ao_clicar_renomear_sala(GtkWidget *btn, gpointer data) {
     oferecer_desfazer(aviso);
 }
 
-// Coloca os botões "Renomear" e "Excluir" na parte de baixo do card
-static void adicionar_botoes_card(GtkWidget *card, const char *sala, InterfaceApp *ui) {
+// Clique em "Manutenção" / "Liberar sala": troca o estado da sala
+static void ao_clicar_manutencao_sala(GtkWidget *btn, gpointer data) {
+    InterfaceApp *ui = data;
+    // Copia o nome agora: atualizar_telas() destrói o card (e o botão) mais abaixo
+    char sala[25];
+    copiar_texto(sala, sizeof(sala), g_object_get_data(G_OBJECT(btn), "sala"));
+    int em_manutencao = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(btn), "manutencao"));
+    int novo_estado = !em_manutencao;
+    preparar_desfazer(ui);
+
+    char titulo[120], detalhe[500];
+    if (novo_estado) {
+        int aulas = contar_aulas_da_sala(ui, sala);
+        snprintf(titulo, sizeof(titulo), "Colocar a sala %s em manutenção?", sala);
+        if (aulas > 0) {
+            snprintf(detalhe, sizeof(detalhe),
+                     "Ela deixa de aparecer como livre. Atenção: ela ainda tem %d aula(s) na semana. "
+                     "Essas aulas continuam marcadas nela até você mudar: vá em \"Planilha: Turma – Horário\", "
+                     "digite %s na busca e use \"Trocar sala\" em cada aula.", aulas, sala);
+        } else {
+            snprintf(detalhe, sizeof(detalhe), "Ela deixa de aparecer como livre até você clicar em \"Liberar sala\".");
+        }
+        if (!confirmar(ui, titulo, detalhe, "Colocar em manutenção")) return;
+    } else {
+        snprintf(titulo, sizeof(titulo), "Liberar a sala %s?", sala);
+        if (!confirmar(ui, titulo, "Ela volta a aparecer como livre nos horários sem aula.", "Liberar sala")) return;
+    }
+
+    if (!definir_manutencao_sala(ARQ_SALAS, sala, novo_estado)) {
+        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível mudar a sala.",
+                         "O programa não conseguiu gravar o arquivo " ARQ_SALAS ". Nada foi alterado.");
+        return;
+    }
+    recarregar_salas(ui);
+    atualizar_telas(ui);
+
+    char aviso[100];
+    snprintf(aviso, sizeof(aviso), novo_estado ? "Sala %s em manutenção." : "Sala %s liberada.", sala);
+    oferecer_desfazer(aviso);
+}
+
+// Coloca os botões "Renomear", "Excluir" e "Manutenção" na parte de baixo do card
+static void adicionar_botoes_card(GtkWidget *card, const char *sala, int em_manutencao, InterfaceApp *ui) {
     GtkWidget *linha = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_widget_set_margin_top(linha, 6);
 
@@ -612,6 +653,16 @@ static void adicionar_botoes_card(GtkWidget *card, const char *sala, InterfaceAp
 
     gtk_box_pack_start(GTK_BOX(linha), btn_renomear, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(linha), btn_excluir, FALSE, FALSE, 0);
+    
+    // Botão de manutenção: o texto muda conforme o estado da sala
+    GtkWidget *btn_manut = gtk_button_new_with_label(em_manutencao ? "Liberar sala" : "Manutenção");
+    adicionar_classe(btn_manut, "card-action");
+    gtk_widget_set_tooltip_text(btn_manut, em_manutencao ? "A sala voltou a funcionar: ela volta a aparecer como livre"
+                                                         : "Sala em reforma ou quebrada: ela deixa de aparecer como livre");
+    g_object_set_data_full(G_OBJECT(btn_manut), "sala", g_strdup(sala), g_free);
+    g_object_set_data(G_OBJECT(btn_manut), "manutencao", GINT_TO_POINTER(em_manutencao));
+    g_signal_connect(btn_manut, "clicked", G_CALLBACK(ao_clicar_manutencao_sala), ui);
+    gtk_box_pack_start(GTK_BOX(linha), btn_manut, FALSE, FALSE, 0);
     gtk_box_pack_end(GTK_BOX(card), linha, FALSE, FALSE, 0);
 }
 
@@ -646,6 +697,7 @@ static void atualizar_painel(InterfaceApp *ui) {
         gboolean card_livre = FALSE;
         if (todas[s].status_manutencao == 1) {
             card = criar_card_sala(todas[s].id_sala, "Em manutenção", FALSE);
+            adicionar_classe(card, "maintenance");
             ocupadas++;
         } else if (ocupante) {
             char desc[200];
@@ -657,7 +709,7 @@ static void atualizar_painel(InterfaceApp *ui) {
             card_livre = TRUE;
             livres++;
         }
-        adicionar_botoes_card(card, todas[s].id_sala, ui);
+        adicionar_botoes_card(card, todas[s].id_sala, todas[s].status_manutencao, ui);
         GtkWidget *evento = gtk_event_box_new();
         gtk_event_box_set_visible_window(GTK_EVENT_BOX(evento), FALSE);
         gtk_container_add(GTK_CONTAINER(evento), card);
