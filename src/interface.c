@@ -6,9 +6,6 @@
 #include "interface.h"
 #include "../include/backend.h"
 #include "pdf_para_csv.h"
-#ifdef G_OS_WIN32
-#include <windows.h>
-#endif
 
 // =======================================================
 // TABELAS FIXAS
@@ -1945,22 +1942,11 @@ static GtkWidget* criar_pagina_notificacoes(InterfaceApp *ui) {
 }
 
 // =======================================================
-// PÁGINA 5: AJUDA (vídeo, atalho na área de trabalho, resetar)
+// PÁGINA 5: AJUDA (vídeo, resetar)
 // =======================================================
 
 #define ARQ_VIDEO_TUTORIAL "ajuda/tutorial.mp4"
 
-// Caminho completo do programa (.exe), para o atalho da área de trabalho
-static char *caminho_do_programa(void) {
-#ifdef G_OS_WIN32
-    wchar_t w[MAX_PATH];
-    DWORD n = GetModuleFileNameW(NULL, w, MAX_PATH);
-    if (n == 0 || n >= MAX_PATH) return NULL;
-    return g_utf16_to_utf8((gunichar2 *)w, -1, NULL, NULL, NULL);
-#else
-    return g_file_read_link("/proc/self/exe", NULL);
-#endif
-}
 
 static void ao_clicar_video(GtkWidget *btn, gpointer data) {
     (void)btn;
@@ -1983,67 +1969,6 @@ static void ao_clicar_video(GtkWidget *btn, gpointer data) {
     g_free(uri);
     g_free(completo);
     g_free(pasta);
-}
-
-#ifdef G_OS_WIN32
-// Duplica aspas simples para o texto caber dentro de '...' no PowerShell
-static char *aspas_powershell(const char *texto) {
-    char **partes = g_strsplit(texto, "'", -1);
-    char *junto = g_strjoinv("''", partes);
-    g_strfreev(partes);
-    return junto;
-}
-#endif
-
-static void ao_clicar_atalho(GtkWidget *btn, gpointer data) {
-    (void)btn;
-    InterfaceApp *ui = data;
-    const char *mesa = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
-    char *programa = caminho_do_programa();
-    if (!mesa || !programa) {
-        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível achar a Área de Trabalho.", NULL);
-        g_free(programa);
-        return;
-    }
-    char *pasta_bin = g_path_get_dirname(programa);
-    char *pasta_projeto = g_path_get_dirname(pasta_bin);
-    gboolean ok = FALSE;
-    GError *erro = NULL;
-
-#ifdef G_OS_WIN32
-    // O Windows cria atalhos (.lnk) pelo PowerShell
-    char *lnk = g_build_filename(mesa, "Controle de Salas.lnk", NULL);
-    char *a_lnk = aspas_powershell(lnk), *a_exe = aspas_powershell(programa), *a_dir = aspas_powershell(pasta_projeto);
-    char *comando = g_strdup_printf("$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%s');"
-                                    "$s.TargetPath='%s';$s.WorkingDirectory='%s';$s.IconLocation='%s,0';"
-                                    "$s.Description='Controle de Salas - POLI-UPE';$s.Save()",
-                                    a_lnk, a_exe, a_dir, a_exe);
-    char *argv[] = {"powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", comando, NULL};
-    int status = 0;
-    ok = g_spawn_sync(NULL, argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL | G_SPAWN_STDERR_TO_DEV_NULL,
-                      NULL, NULL, NULL, NULL, &status, &erro) && status == 0;
-    g_free(comando); g_free(a_lnk); g_free(a_exe); g_free(a_dir); g_free(lnk);
-#else
-    // Linux: arquivo .desktop
-    char *arq = g_build_filename(mesa, "controle-de-salas.desktop", NULL);
-    char *icone = g_build_filename(pasta_projeto, "icone.png", NULL);
-    char *conteudo = g_strdup_printf("[Desktop Entry]\nType=Application\nName=Controle de Salas\n"
-                                     "Comment=Controle de Salas - POLI-UPE\nExec=\"%s\"\nPath=%s\nIcon=%s\nTerminal=false\n",
-                                     programa, pasta_projeto, icone);
-    ok = g_file_set_contents(arq, conteudo, -1, &erro);
-    if (ok) g_chmod(arq, 0755);
-    g_free(conteudo); g_free(icone); g_free(arq);
-#endif
-
-    if (ok) {
-        mostrar_balao("Pronto! O atalho \"Controle de Salas\" foi criado na Área de Trabalho.", FALSE);
-    } else {
-        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível criar o atalho.", erro ? erro->message : NULL);
-    }
-    if (erro) g_error_free(erro);
-    g_free(pasta_projeto);
-    g_free(pasta_bin);
-    g_free(programa);
 }
 
 // Copia os .dat para data/backup-AAAAMMDD-HHMMSS antes de apagar (segurança extra além do Desfazer)
@@ -2162,10 +2087,6 @@ static GtkWidget* criar_pagina_ajuda(InterfaceApp *ui) {
         "5. Errou? Clique em \"Desfazer\" no aviso que aparece embaixo da tela.\n"
         "6. Em \"Notificações\" ficam as turmas sem sala, os choques de horário e o histórico de tudo o que mudou.",
         NULL), FALSE, FALSE, 0);
-
-    gtk_box_pack_start(GTK_BOX(vbox), criar_cartao_ajuda("Abrir pela Área de Trabalho",
-        "Cria um atalho \"Controle de Salas\" na Área de Trabalho, para abrir o sistema com dois cliques.",
-        criar_botao_acao("Criar atalho", "Cria o atalho na Área de Trabalho", G_CALLBACK(ao_clicar_atalho), ui)), FALSE, FALSE, 0);
 
     GtkWidget *b_reset = criar_botao_acao("Resetar sistema", "Apaga todas as aulas e salas (pede confirmação)", G_CALLBACK(ao_clicar_resetar), ui);
     adicionar_classe(b_reset, "danger");
