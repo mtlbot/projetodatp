@@ -1,6 +1,7 @@
 #include <gtk/gtk.h>
 #include <glib/gstdio.h>
 #include "interface.h"
+#include "backend.h"
 
 // GLib < 2.74 (ex.: Ubuntu 22.04 / Zorin 17) não tem G_APPLICATION_DEFAULT_FLAGS
 #if !GLIB_CHECK_VERSION(2, 74, 0)
@@ -36,8 +37,15 @@ static void ir_para_pasta_do_projeto(const char *argv0) {
 
 static void activate(GtkApplication *app, gpointer user_data) {
     (void)user_data;
+    carregar_css();
     carregar_dados(&app_ui);           // backend: carregar_alocacoes + listar_todas_salas
-    criar_interface_principal(app, &app_ui);
+    mostrar_login(app, &app_ui);       // a janela principal só abre depois do nome e da senha
+}
+
+// Fechou o programa: registra a saída de quem estava logado
+static void ao_encerrar(GtkApplication *app, gpointer user_data) {
+    (void)app; (void)user_data;
+    if (usuario_atual()[0] != '\0') registrar_historico(ARQ_HISTORICO, "Saiu do sistema");
 }
 
 int main(int argc, char **argv) {
@@ -46,6 +54,7 @@ int main(int argc, char **argv) {
 
     GtkApplication *app = gtk_application_new("br.upe.poli.datp", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
+    g_signal_connect(app, "shutdown", G_CALLBACK(ao_encerrar), NULL);
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
     return status;

@@ -6,6 +6,39 @@
 window, .main-bg {
     background-color: #F8F7F2;
     font-family: 'Segoe UI', 'Ubuntu', sans-serif;
+    font-size: 16px;   /* letra base maior: tudo fica legível também para quem enxerga menos */
+}
+
+/* Dicas que aparecem ao parar o mouse em cima de um botão */
+tooltip, tooltip label {
+    font-size: 15px;
+}
+
+/* Tabelas (Planilha: Turma – Horário e Salas livres) */
+treeview {
+    font-size: 16px;
+}
+
+treeview header button {
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px 8px;
+}
+
+/* Caixas de texto e listas de escolha */
+entry, combobox, combobox button {
+    font-size: 16px;
+    min-height: 36px;
+}
+
+/* Janelas de pergunta e de aviso (ex.: "Apagar o histórico?") */
+dialog label, messagedialog label {
+    font-size: 16px;
+}
+
+dialog button, messagedialog button {
+    font-size: 16px;
+    padding: 8px 16px;
 }
 
 /* ==========================================================================
@@ -19,14 +52,14 @@ window, .main-bg {
 
 .sidebar-title {
     color: #FFFFFF;
-    font-size: 20px;
+    font-size: 28px;
     font-weight: bold;
     font-family: serif;
 }
 
 .sidebar-subtitle {
     color: #C5A059;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: bold;
     margin-bottom: 25px;
 }
@@ -43,7 +76,7 @@ window, .main-bg {
 
 .semestre-btn label {
     color: #C5A059;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: bold;
 }
 
@@ -59,8 +92,8 @@ window, .main-bg {
     color: #E0E8E3;
     border: none;
     border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 14px;
+    padding: 12px 12px;
+    font-size: 17px;
     margin-bottom: 4px;
     box-shadow: none;
 }
@@ -81,14 +114,14 @@ window, .main-bg {
    ========================================================================== */
 
 .page-title {
-    font-size: 26px;
+    font-size: 31px;
     font-weight: bold;
     color: #1A1A1A;
     font-family: serif;
 }
 
 .page-subtitle {
-    font-size: 13px;
+    font-size: 16px;
     color: #666666;
     margin-bottom: 15px;
 }
@@ -100,8 +133,8 @@ window, .main-bg {
     color: #333333;
     border: 1px solid #E0DDD5;
     border-radius: 6px;
-    padding: 6px 14px;
-    font-size: 13px;
+    padding: 8px 16px;
+    font-size: 16px;
     box-shadow: none;
 }
 
@@ -123,7 +156,7 @@ window, .main-bg {
     background-color: #FFFFFF;
     border-radius: 10px;
     border: 1px solid #E5E2D8;
-    padding: 12px 16px;
+    padding: 14px 18px;
 }
 
 .kpi-card.blue {
@@ -142,7 +175,7 @@ window, .main-bg {
 }
 
 .kpi-value {
-    font-size: 24px;
+    font-size: 30px;
     font-weight: bold;
     font-family: serif;
 }
@@ -153,9 +186,9 @@ window, .main-bg {
 
 .room-card {
     border-radius: 8px;
-    padding: 12px;
-    min-width: 130px;
-    min-height: 75px;
+    padding: 14px;
+    min-width: 160px;
+    min-height: 90px;
 }
 
 /* Card de Sala Ocupada (Azul) */
@@ -179,18 +212,18 @@ window, .main-bg {
 }
 
 .room-code {
-    font-size: 18px;
+    font-size: 22px;
     font-weight: bold;
 }
 
 .room-desc {
-    font-size: 10px;
+    font-size: 14px;
     font-weight: 600;
 }
 /* Botões pequenos dentro do card (Renomear / Excluir) */
 .card-action {
-    font-size: 10px;
-    padding: 2px 8px;
+    font-size: 14px;
+    padding: 4px 10px;
     min-height: 0;
     min-width: 0;
     background-image: none;
@@ -214,14 +247,15 @@ window, .main-bg {
 .balao {
     background-color: #1F2937;
     color: #FFFFFF;
-    border-radius: 10px;
-    padding: 10px 14px;
-    margin-bottom: 24px;
+    border-radius: 12px;
+    padding: 16px 22px;
+    margin-bottom: 28px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .balao label {
     color: #FFFFFF;
+    font-size: 18px;
 }
 
 .balao-desfazer,
@@ -230,7 +264,7 @@ window, .main-bg {
     background-color: transparent;
     border: none;
     box-shadow: none;
-    padding: 2px 8px;
+    padding: 6px 12px;
     min-height: 0;
 }
 
@@ -257,12 +291,13 @@ window, .main-bg {
     background-color: #FEF3C7;
     border: 1px solid #FCD34D;
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     color: #78350F;
+    font-size: 16px;
 }
 
 .section-title {
-    font-size: 15px;
+    font-size: 19px;
     font-weight: bold;
     color: #1A1A1A;
     margin-top: 8px;
@@ -281,7 +316,7 @@ window, .main-bg {
 
 .aviso-lista .page-subtitle {
     margin-bottom: 0;
-    font-size: 12px;
+    font-size: 15px;
 }
 
 /* Cartões da aba Ajuda */
@@ -289,7 +324,7 @@ window, .main-bg {
     background-color: #FFFFFF;
     border: 1px solid #E0DDD5;
     border-radius: 10px;
-    padding: 14px 16px;
+    padding: 16px 18px;
 }
 
 .ajuda-card.perigo {
@@ -321,4 +356,90 @@ window, .main-bg {
 /* Botão sem ação disponível (ex.: "Limpar histórico" com a lista vazia) */
 .pill-btn:disabled {
     opacity: 0.5;
+}
+
+/* ==========================================================================
+   USUÁRIO LOGADO (pé da barra lateral)
+   ========================================================================== */
+
+.usuario-logado {
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 0px 2px;
+}
+
+.trocar-usuario {
+    margin-bottom: 0px;
+}
+
+.trocar-usuario label {
+    font-size: 15px;
+}
+
+/* ==========================================================================
+   TELA DE LOGIN
+   ========================================================================== */
+
+window.login-fundo {
+    background-color: #003322;
+}
+
+.login-cartao {
+    background-color: #FFFFFF;
+    border-radius: 16px;
+    padding: 36px 40px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.login-titulo {
+    font-family: serif;
+    font-size: 36px;
+    font-weight: bold;
+    color: #003322;
+}
+
+.login-sub {
+    font-size: 16px;
+    color: #666666;
+    margin-bottom: 14px;
+}
+
+.login-rotulo {
+    font-size: 17px;
+    font-weight: bold;
+    color: #1A1A1A;
+    margin-top: 6px;
+}
+
+.login-campo {
+    font-size: 18px;
+    min-height: 44px;
+    padding: 0px 12px;
+    border-radius: 8px;
+}
+
+.login-check label {
+    font-size: 16px;
+    color: #333333;
+}
+
+.login-erro {
+    font-size: 16px;
+    font-weight: bold;
+    color: #B91C1C;
+}
+
+.login-botao {
+    font-size: 19px;
+    font-weight: bold;
+    padding: 12px 16px;
+    margin-top: 10px;
+    border-radius: 8px;
+}
+
+.login-rodape {
+    font-size: 14px;
+    color: #666666;
+    margin-top: 8px;
 }

@@ -10,6 +10,12 @@
 #define ARQ_SALAS     "data/salas.dat"
 #define ARQ_HISTORICO "data/historico.txt"
 #define ARQ_SEMESTRE  "data/semestre.txt"   // semestre escolhido pelo DATP (sem ele, vale a data)
+#define ARQ_ULTIMO_USUARIO "data/ultimo_usuario.txt" // nome do último login (já vem preenchido na próxima vez)
+
+// Login: senha única para entrar no sistema e tamanho máximo do nome
+#define SENHA_SISTEMA "datp360"
+#define MAX_LETRAS_NOME 40      // letras que cabem no campo "Seu nome"
+#define TAM_NOME_USUARIO 81     // bytes: letra com acento ocupa 2 no UTF-8
 
 // Tamanho maximo de uma linha do historico
 #define TAM_LINHA_HISTORICO 512

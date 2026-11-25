@@ -17,6 +17,7 @@ typedef struct {
     GtkWidget *nav_btns[NUM_PAGINAS];
     GtkWidget *btn_semestre;       // "SEMESTRE 2026.2" na barra lateral (clicar muda o semestre)
     GtkWidget *ajuda_semestre_lbl; // texto do cartão "Semestre" na Ajuda
+    GtkWidget *lbl_usuario;        // "👤 Nome" no pé da barra lateral (quem fez login)
 
     // Página "Painel de salas"
     GtkWidget *painel_flow;
@@ -59,6 +60,15 @@ typedef struct {
 
 // Lê data/alocacoes.dat e data/salas.dat para a memória (chamado no activate)
 void carregar_dados(InterfaceApp *ui);
+
+// Carrega o style.css (cores e tamanhos de letra de todas as telas)
+void carregar_css(void);
+
+// Tela de login (login.c): pede nome e senha; ao entrar abre (ou volta para) a janela principal
+void mostrar_login(GtkApplication *app, InterfaceApp *ui);
+
+// Atualiza o nome de quem está logado no pé da barra lateral
+void mostrar_usuario_na_tela(InterfaceApp *ui);
 
 // Inicializa e constrói a janela principal
 void criar_interface_principal(GtkApplication *app, InterfaceApp *ui);
