@@ -31,6 +31,27 @@ window, .main-bg {
     margin-bottom: 25px;
 }
 
+/* "SEMESTRE 2026.2 ✎": parece o subtítulo, mas é clicável (muda o semestre) */
+.semestre-btn {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    padding: 2px 0px;
+    margin-bottom: 25px;
+}
+
+.semestre-btn label {
+    color: #C5A059;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.semestre-btn:hover label {
+    color: #E3C27E;
+    text-decoration: underline;
+}
+
 /* Botões de Navegação da Sidebar */
 .nav-btn {
     background-color: transparent;

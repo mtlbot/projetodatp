@@ -14,5 +14,6 @@ ControleDeSalas/
 # Cópias de segurança e arquivos temporários do sistema
 data/backup-*/
 data/historico.txt
+data/semestre.txt
 data/historico-apagado-*.txt
 data/*_temp.csv
