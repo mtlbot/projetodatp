@@ -134,3 +134,25 @@ int renomear_sala(const char *caminho_arquivo, const char *id_antigo, const char
     strncpy(lista[posicao].id_sala, id_novo, sizeof(lista[posicao].id_sala) - 1);
     return gravar_todas_salas(caminho_arquivo, lista, qtd);
 }
+
+int definir_manutencao_sala(const char *caminho_arquivo, const char *id_sala, int em_manutencao) {
+    if (strlen(id_sala) == 0) return 0;
+
+    SalaFisica lista[MAX_SALAS];
+    int qtd = 0;
+    listar_todas_salas(caminho_arquivo, lista, &qtd, MAX_SALAS);
+
+    for (int i = 0; i < qtd; i++) {
+        if (strcmp(lista[i].id_sala, id_sala) == 0) {
+            lista[i].status_manutencao = em_manutencao ? 1 : 0;
+            return gravar_todas_salas(caminho_arquivo, lista, qtd);
+        }
+    }
+
+    // A sala so existia na grade (nunca foi gravada em salas.dat): cadastra ja com o status
+    SalaFisica nova;
+    memset(&nova, 0, sizeof(nova));
+    strncpy(nova.id_sala, id_sala, sizeof(nova.id_sala) - 1);
+    nova.status_manutencao = em_manutencao ? 1 : 0;
+    return cadastrar_nova_sala(caminho_arquivo, nova) == 1 ? 1 : 0;
+}

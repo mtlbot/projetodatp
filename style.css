@@ -150,6 +150,12 @@ window, .main-bg {
     border: 1px solid #A3E8BF;
     color: #065F46;
 }
+/* Card de Sala em Manutenção (Cinza) */
+.room-card.maintenance {
+    background-color: #E5E7EB;
+    border: 1px dashed #9CA3AF;
+    color: #4B5563;
+}
 
 .room-code {
     font-size: 18px;
