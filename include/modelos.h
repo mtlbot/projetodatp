@@ -8,6 +8,10 @@
 // Caminhos dos arquivos de dados (relativos à pasta do programa)
 #define ARQ_ALOCACOES "data/alocacoes.dat"
 #define ARQ_SALAS     "data/salas.dat"
+#define ARQ_HISTORICO "data/historico.txt"
+
+// Tamanho maximo de uma linha do historico
+#define TAM_LINHA_HISTORICO 512
 
 // Definição da Sala Física da POLI-UPE
 typedef struct {

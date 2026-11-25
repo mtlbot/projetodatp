@@ -5,7 +5,10 @@
 #include "modelos.h"
 
 #define NUM_DIAS 6
-#define NUM_PAGINAS 4
+#define NUM_PAGINAS 5
+
+// Número de cada aba da barra lateral
+enum { PAG_PAINEL, PAG_GRADE, PAG_LIVRES, PAG_AVISOS, PAG_AJUDA };
 
 // Estado da aplicação: widgets da janela + dados carregados em RAM pelo backend
 typedef struct {
@@ -21,6 +24,8 @@ typedef struct {
     GtkWidget *painel_kpi_ocupadas;
     GtkWidget *painel_kpi_aulas;
     int painel_dia;
+    GtkWidget *painel_aviso;       // faixa "turmas sem sala / choques"
+    GtkWidget *painel_aviso_lbl;
 
     // Página "Planilha: Turma – Horário"
     GtkWidget *grade_tree;
@@ -36,6 +41,11 @@ typedef struct {
     GtkWidget *livres_combo_fim;
     GtkListStore *livres_store;
     GtkWidget *livres_status;
+    GtkWidget *livres_tree;
+
+    // Página "Notificações"
+    GtkWidget *avisos_pendencias;
+    GtkWidget *avisos_historico;
 
     // Dados (backend)
     AlocacaoTurma alocacoes[MAX_ALOCACOES];

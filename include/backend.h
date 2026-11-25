@@ -65,4 +65,38 @@ int cancelar_alocacao(const char *caminho_arquivo, int id_alocacao, AlocacaoTurm
 // Devolve o proximo ID livre (maior ID existente + 1).
 int proximo_id_alocacao(AlocacaoTurma *lista, int qtd);
 
+// Apaga uma sala do arquivo de salas (reescreve o arquivo sem ela).
+// Retorna 1 (sucesso), 0 (erro de disco) ou -2 (sala nao encontrada).
+int excluir_sala(const char *caminho_arquivo, const char *id_sala);
+
+// Troca o nome (codigo) de uma sala, mantendo capacidade e status.
+// Retorna 1 (sucesso), 0 (nome vazio/erro de disco) ou -1 (ja existe sala com o novo nome).
+int renomear_sala(const char *caminho_arquivo, const char *id_antigo, const char *id_novo);
+
+// Troca o nome da sala em TODAS as aulas que usam ela e salva o arquivo de alocacoes.
+// Retorna quantas aulas mudaram (0 = nenhuma) ou -1 (erro ao salvar).
+int renomear_sala_nas_alocacoes(const char *caminho_arquivo, const char *id_antigo, const char *id_novo,
+                                AlocacaoTurma *lista, int qtd_total);
+
+// Grava o vetor inteiro de salas no arquivo (substitui o conteudo). Retorna 1 (sucesso) ou 0 (erro de disco).
+int gravar_todas_salas(const char *caminho_arquivo, SalaFisica *lista, int qtd);
+
+// Troca as salas de duas aulas entre si (inversao de sala).
+// Retorna 1 (sucesso), -1 (depois da troca alguma bateria com outra aula), -2 (ID nao encontrado) ou 0 (erro ao salvar).
+int inverter_salas(const char *caminho_arquivo, int id_a, int id_b, AlocacaoTurma *lista, int qtd_total);
+
+// =======================================================
+// MODULO 4: EXPORTACAO E HISTORICO (exportador.c / historico.c)
+// =======================================================
+
+// Gera a planilha "TURMA - HORARIO" em CSV (so aulas ativas, ordenadas por dia/horario/sala).
+// O arquivo pode ser importado de volta. Retorna 1 (sucesso) ou 0 (erro ao gravar).
+int exportar_grade_csv(const char *caminho_arquivo, AlocacaoTurma *lista, int qtd);
+
+// Acrescenta uma linha "dd/mm/aaaa hh:mm | texto" no arquivo de historico. Retorna 1 ou 0.
+int registrar_historico(const char *caminho_arquivo, const char *texto);
+
+// Le as ultimas "max" linhas do historico, a mais recente primeiro. Retorna quantas leu.
+int ler_historico(const char *caminho_arquivo, char linhas[][TAM_LINHA_HISTORICO], int max);
+
 #endif

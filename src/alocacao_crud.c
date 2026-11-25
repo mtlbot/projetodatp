@@ -27,6 +27,7 @@ int salvar_alocacoes(const char *caminho_arquivo, AlocacaoTurma *lista, int tota
 }
 
 int buscar_conflito(AlocacaoTurma nova, AlocacaoTurma *lista, int qtd) {
+    if (nova.id_sala[0] == '\0') return -1; // Aula ainda sem sala: nao ocupa nenhuma sala
     for (int i = 0; i < qtd; i++) {
         if (lista[i].ativo == 1 &&
             lista[i].id_alocacao != nova.id_alocacao && // Evita comparar a turma com ela mesma numa edição
@@ -112,4 +113,50 @@ int cancelar_alocacao(const char *caminho_arquivo, int id_alocacao, AlocacaoTurm
         }
     }
     return -2; // ID não existe
+}
+
+int renomear_sala_nas_alocacoes(const char *caminho_arquivo, const char *id_antigo, const char *id_novo,
+                                AlocacaoTurma *lista, int qtd_total) {
+    int alteradas = 0;
+    for (int i = 0; i < qtd_total; i++) {
+        if (strcmp(lista[i].id_sala, id_antigo) == 0) {
+            memset(lista[i].id_sala, 0, sizeof(lista[i].id_sala));
+            strncpy(lista[i].id_sala, id_novo, sizeof(lista[i].id_sala) - 1);
+            alteradas++;
+        }
+    }
+    if (alteradas == 0) return 0; // Nenhuma aula usava essa sala: nada para salvar
+
+    if (!salvar_alocacoes(caminho_arquivo, lista, qtd_total)) return -1;
+    return alteradas;
+}
+
+int inverter_salas(const char *caminho_arquivo, int id_a, int id_b, AlocacaoTurma *lista, int qtd_total) {
+    int ia = -1, ib = -1;
+    for (int i = 0; i < qtd_total; i++) {
+        if (lista[i].id_alocacao == id_a) ia = i;
+        if (lista[i].id_alocacao == id_b) ib = i;
+    }
+    if (ia == -1 || ib == -1) return -2;
+
+    // Guarda como estava, para voltar se der problema
+    AlocacaoTurma original_a = lista[ia], original_b = lista[ib];
+
+    // Troca as salas
+    strcpy(lista[ia].id_sala, original_b.id_sala);
+    strcpy(lista[ib].id_sala, original_a.id_sala);
+
+    // Se os horarios nao forem iguais, uma delas pode bater com outra aula na sala nova
+    if (buscar_conflito(lista[ia], lista, qtd_total) >= 0 || buscar_conflito(lista[ib], lista, qtd_total) >= 0) {
+        lista[ia] = original_a;
+        lista[ib] = original_b;
+        return -1;
+    }
+
+    if (!salvar_alocacoes(caminho_arquivo, lista, qtd_total)) {
+        lista[ia] = original_a;
+        lista[ib] = original_b;
+        return 0;
+    }
+    return 1;
 }

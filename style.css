@@ -160,3 +160,133 @@ window, .main-bg {
     font-size: 10px;
     font-weight: 600;
 }
+/* Botões pequenos dentro do card (Renomear / Excluir) */
+.card-action {
+    font-size: 10px;
+    padding: 2px 8px;
+    min-height: 0;
+    min-width: 0;
+    background-image: none;
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    box-shadow: none;
+    color: #374151;
+}
+
+.card-action:hover {
+    background-color: #FFFFFF;
+}
+
+.card-action.danger:hover {
+    color: #B91C1C;
+    border-color: #FCA5A5;
+}
+
+/* Balão de aviso com "Desfazer" (aparece embaixo, some sozinho) */
+.balao {
+    background-color: #1F2937;
+    color: #FFFFFF;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.balao label {
+    color: #FFFFFF;
+}
+
+.balao-desfazer,
+.balao-fechar {
+    background-image: none;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 2px 8px;
+    min-height: 0;
+}
+
+.balao-desfazer label {
+    color: #6EE7B7;
+    font-weight: bold;
+}
+
+.balao-fechar label {
+    color: #9CA3AF;
+}
+
+.balao-desfazer:hover,
+.balao-fechar:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ==========================================================================
+   NOTIFICAÇÕES, AJUDA E AVISOS
+   ========================================================================== */
+
+/* Faixa amarela no Painel quando há turma sem sala ou choque de horário */
+.faixa-aviso {
+    background-color: #FEF3C7;
+    border: 1px solid #FCD34D;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #78350F;
+}
+
+.section-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #1A1A1A;
+    margin-top: 8px;
+}
+
+/* Listas da aba Notificações */
+.aviso-lista {
+    background-color: #FFFFFF;
+    border: 1px solid #E0DDD5;
+    border-radius: 8px;
+}
+
+.aviso-lista row {
+    border-bottom: 1px solid #F0EEE6;
+}
+
+.aviso-lista .page-subtitle {
+    margin-bottom: 0;
+    font-size: 12px;
+}
+
+/* Cartões da aba Ajuda */
+.ajuda-card {
+    background-color: #FFFFFF;
+    border: 1px solid #E0DDD5;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.ajuda-card.perigo {
+    border-color: #FCA5A5;
+    background-color: #FEF2F2;
+}
+
+/* Botão principal (verde) e botão de perigo (vermelho) */
+.pill-btn.primary {
+    background-color: #004D33;
+    color: #FFFFFF;
+    border-color: #004D33;
+}
+
+.pill-btn.primary:hover {
+    background-color: #00663F;
+}
+
+.pill-btn.danger {
+    background-color: #B91C1C;
+    color: #FFFFFF;
+    border-color: #B91C1C;
+}
+
+.pill-btn.danger:hover {
+    background-color: #991B1B;
+}
