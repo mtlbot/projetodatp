@@ -54,3 +54,20 @@ int ler_historico(const char *caminho_arquivo, char linhas[][TAM_LINHA_HISTORICO
     }
     return n;
 }
+
+int contar_historico(const char *caminho_arquivo) {
+    FILE *f = fopen(caminho_arquivo, "rb");
+    if (f == NULL) return 0;
+    char buffer[TAM_LINHA_HISTORICO];
+    int total = 0;
+    while (fgets(buffer, sizeof(buffer), f) != NULL) if (buffer[0] != '\n' && buffer[0] != '\r') total++;
+    fclose(f);
+    return total;
+}
+
+int limpar_historico(const char *caminho_arquivo) {
+    FILE *f = fopen(caminho_arquivo, "wb"); // "w" = abre zerado: tudo o que tinha no arquivo some
+    if (f == NULL) return 0;
+    fclose(f);
+    return 1;
+}
