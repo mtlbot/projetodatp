@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include "pdf_para_csv.h"
 
@@ -149,6 +150,192 @@ static void escrever_campo(GString *saida, const char *texto, gboolean ultimo) {
     g_string_append_c(saida, ultimo ? '\n' : ';');
 }
 
+// =======================================================
+// FORMATO DA ESCOLARIDADE: "Relatório Turma/Horário"
+// =======================================================
+// É o PDF que o DATP recebe da Coordenação de Graduação. Ele não é uma tabela única: cada turma é um bloco
+//
+//   TURMA   VAGAS   COMPONENTE CURRICULAR
+//   CM      50      MATM0001 - ALGEBRA LINEAR
+//   PROFESSOR (ES)                          CARGA HORÁRIA MINISTRADA
+//   JOSE CLAUDIO MACIEL FREIRE*             60          (pode ter mais de um professor)
+//   DIA DA SEMANA   SALA     HORÁRIO
+//   QUA             B03      10:30-11:20 11:20-12:10    (um horário de 50 min por aula)
+//   QUI             K03      10:30-11:20 11:20-12:10
+//
+// A sala pode vir vazia (ainda não definida) ou quebrada em duas linhas ("I08 - SALA DE" / "DESENHO").
+// Cada linha de dia vira uma linha do CSV: os horários seguidos são juntados (10:30 às 12:10).
+
+#define MAX_HORARIOS_DIA 20
+
+// Uma aula (linha de dia) ainda sendo montada: a sala pode continuar na linha de baixo
+typedef struct {
+    gboolean ativa;
+    char dia[8];
+    GString *sala;
+    int n;
+    char ini[MAX_HORARIOS_DIA][6], fim[MAX_HORARIOS_DIA][6];
+} AulaPendente;
+
+// Linhas de cabeçalho/rodapé que se repetem em toda página
+static gboolean linha_de_cabecalho(const char *linha) {
+    const char *marcas[] = {"FUNDAÇÃO UNIVERSIDADE", "DATA:", "HORA:", "COORD. GERAL", "Relatório Turma",
+                            "Professor Responsável", "TOTAL DE TURMAS", NULL};
+    for (int i = 0; marcas[i]; i++) if (strstr(linha, marcas[i])) return TRUE;
+    return FALSE;
+}
+
+// Escreve as linhas do CSV de uma aula: horários seguidos viram um intervalo só;
+// se houver um buraco (ex.: 07:10-08:00 e 10:30-11:20) saem duas linhas
+static int escrever_aula(GString *csv, const char *depto, const char *disciplina, const char *turma,
+                         const char *professores, AulaPendente *aula) {
+    int escritas = 0;
+    // A sala fica exatamente como veio no PDF (o DATP renomeia no sistema se quiser)
+    const char *sala = aula->sala->str;
+    for (int i = 0; i < aula->n; ) {
+        int j = i;
+        while (j + 1 < aula->n && strcmp(aula->fim[j], aula->ini[j + 1]) == 0) j++;
+        char dia_hora[40];
+        snprintf(dia_hora, sizeof(dia_hora), "%s - %s às %s", aula->dia, aula->ini[i], aula->fim[j]);
+        escrever_campo(csv, depto, FALSE);
+        escrever_campo(csv, disciplina, FALSE);
+        escrever_campo(csv, turma, FALSE);
+        escrever_campo(csv, professores, FALSE);
+        escrever_campo(csv, dia_hora, FALSE);
+        escrever_campo(csv, sala, TRUE);
+        escritas++;
+        i = j + 1;
+    }
+    aula->ativa = FALSE;
+    return escritas;
+}
+
+static gboolean eh_relatorio_turma_horario(const char *texto) {
+    return strstr(texto, "DIA DA SEMANA") != NULL && strstr(texto, "PROFESSOR (ES)") != NULL;
+}
+
+static int converter_relatorio_turma_horario(char **linhas, GString *csv) {
+    static GRegex *re_dia = NULL, *re_hora = NULL;
+    if (re_dia == NULL) {
+        re_dia = g_regex_new("^\\s*(SEG|TER|QUA|QUI|SEX|S[AÁ]B|DOM)\\b", 0, 0, NULL);
+        re_hora = g_regex_new("(\\d{1,2}:\\d{2})\\s*-\\s*(\\d{1,2}:\\d{2})", 0, 0, NULL);
+    }
+    enum { FORA, TURMA, PROFESSORES, DIAS } parte = FORA;
+    char depto[16] = "", disciplina[200] = "", turma[32] = "";
+    GString *professores = g_string_new("");
+    AulaPendente aula = { .ativa = FALSE, .sala = g_string_new("") };
+    int total = 0;
+
+    for (int i = 0; linhas[i]; i++) {
+        char *linha = linhas[i];
+        if (linha_de_cabecalho(linha)) continue;            // repete em toda página: não muda o bloco atual
+        char *limpa = g_strstrip(g_strdup(linha));
+        if (limpa[0] == '\0') { g_free(limpa); continue; }
+
+        if (strstr(limpa, "TURMA") && strstr(limpa, "VAGAS")) {          // começo de um bloco novo
+            if (aula.ativa) total += escrever_aula(csv, depto, disciplina, turma, professores->str, &aula);
+            parte = TURMA;
+            depto[0] = disciplina[0] = turma[0] = '\0';
+            g_string_truncate(professores, 0);
+        } else if (strstr(limpa, "PROFESSOR (ES)")) {
+            parte = PROFESSORES;
+        } else if (strstr(limpa, "DIA DA SEMANA")) {
+            parte = DIAS;
+        } else if (parte == TURMA) {
+            // "CM   50   MATM0001 - ALGEBRA LINEAR"  (nome longo pode continuar na linha de baixo)
+            int n = 0;
+            char **p = dividir_colunas(limpa, &n);
+            if (turma[0] == '\0' && n >= 2) {
+                g_strlcpy(turma, p[0], sizeof(turma));
+                const char *comp = p[n - 1];
+                const char *traco = strstr(comp, " - ");
+                if (traco) {
+                    int k = 0;   // departamento = letras do código (MATM0001 -> MATM)
+                    while (k < (int)sizeof(depto) - 1 && g_ascii_isalpha(comp[k])) { depto[k] = comp[k]; k++; }
+                    depto[k] = '\0';
+                    g_strlcpy(disciplina, traco + 3, sizeof(disciplina));
+                } else {
+                    g_strlcpy(disciplina, comp, sizeof(disciplina));
+                }
+            } else if (turma[0] != '\0') {
+                g_strlcat(disciplina, " ", sizeof(disciplina));
+                g_strlcat(disciplina, limpa, sizeof(disciplina));
+            }
+            g_strfreev(p);
+        } else if (parte == PROFESSORES) {
+            // "JOSE CLAUDIO MACIEL FREIRE*      60"  -> nome sem o * (o * só marca o responsável)
+            int n = 0;
+            char **p = dividir_colunas(limpa, &n);
+            if (n >= 1) {
+                char *nome = g_strstrip(g_strdup(p[0]));
+                g_strdelimit(nome, "*", ' ');
+                g_strstrip(nome);
+                if (nome[0] != '\0' && strstr(professores->str, nome) == NULL) {
+                    if (professores->len > 0) g_string_append(professores, " / ");
+                    g_string_append(professores, nome);
+                }
+                g_free(nome);
+            }
+            g_strfreev(p);
+        } else if (parte == DIAS) {
+            GMatchInfo *md = NULL;
+            if (g_regex_match(re_dia, limpa, 0, &md)) {
+                // "QUA   B03   10:30-11:20 11:20-12:10"
+                if (aula.ativa) total += escrever_aula(csv, depto, disciplina, turma, professores->str, &aula);
+                char *dia = g_match_info_fetch(md, 1);
+                int fim_dia = 0;
+                g_match_info_fetch_pos(md, 0, NULL, &fim_dia);
+                g_strlcpy(aula.dia, g_str_has_prefix(dia, "S") && !g_str_has_prefix(dia, "SE") ? "SAB" : dia, sizeof(aula.dia));
+                g_free(dia);
+                aula.ativa = TRUE;
+                aula.n = 0;
+                g_string_truncate(aula.sala, 0);
+
+                GMatchInfo *mh = NULL;
+                int inicio_horarios = -1;
+                g_regex_match(re_hora, limpa + fim_dia, 0, &mh);
+                while (g_match_info_matches(mh) && aula.n < MAX_HORARIOS_DIA) {
+                    char *a = g_match_info_fetch(mh, 1), *b = g_match_info_fetch(mh, 2);
+                    int h, m;
+                    if (sscanf(a, "%d:%d", &h, &m) == 2) snprintf(aula.ini[aula.n], 6, "%02d:%02d", h, m);
+                    if (sscanf(b, "%d:%d", &h, &m) == 2) snprintf(aula.fim[aula.n], 6, "%02d:%02d", h, m);
+                    if (inicio_horarios < 0) g_match_info_fetch_pos(mh, 0, &inicio_horarios, NULL);
+                    aula.n++;
+                    g_free(a);
+                    g_free(b);
+                    g_match_info_next(mh, NULL);
+                }
+                g_match_info_free(mh);
+                // A sala é o que está entre o dia e o primeiro horário (pode ser vazio)
+                if (inicio_horarios < 0) inicio_horarios = (int)strlen(limpa + fim_dia);
+                char *sala = g_strstrip(g_strndup(limpa + fim_dia, inicio_horarios));
+                g_string_append(aula.sala, sala);
+                g_free(sala);
+                if (aula.n == 0) {
+                    // Dia sem horário: vai para o CSV assim mesmo, para aparecer na tela de revisão
+                    escrever_campo(csv, depto, FALSE);
+                    escrever_campo(csv, disciplina, FALSE);
+                    escrever_campo(csv, turma, FALSE);
+                    escrever_campo(csv, professores->str, FALSE);
+                    escrever_campo(csv, aula.dia, FALSE);
+                    escrever_campo(csv, aula.sala->str, TRUE);
+                    aula.ativa = FALSE;
+                }
+            } else if (aula.ativa && !g_regex_match(re_hora, limpa, 0, NULL)) {
+                // Continuação do nome da sala (ex.: "I08 - SALA DE" + "DESENHO")
+                if (aula.sala->len > 0) g_string_append_c(aula.sala, ' ');
+                g_string_append(aula.sala, limpa);
+            }
+            g_match_info_free(md);
+        }
+        g_free(limpa);
+    }
+    if (aula.ativa) total += escrever_aula(csv, depto, disciplina, turma, professores->str, &aula);
+    g_string_free(aula.sala, TRUE);
+    g_string_free(professores, TRUE);
+    return total;
+}
+
 int converter_pdf_para_csv(const char *caminho_pdf, const char *caminho_csv,
                            int *linhas_convertidas, char *erro, int tam_erro) {
     *linhas_convertidas = 0;
@@ -166,6 +353,12 @@ int converter_pdf_para_csv(const char *caminho_pdf, const char *caminho_csv,
     escrever_campo(csv, "SALA", TRUE);
 
     char **linhas = g_strsplit(texto, "\n", -1);
+    if (eh_relatorio_turma_horario(texto)) {
+        // PDF oficial da escolaridade (um bloco por turma)
+        *linhas_convertidas = converter_relatorio_turma_horario(linhas, csv);
+        g_strfreev(linhas);
+        linhas = g_new0(char *, 1);   // nada mais a ler no laço abaixo
+    }
     for (int i = 0; linhas[i]; i++) {
         char *linha = linhas[i];
         int ini, fim;
