@@ -65,7 +65,7 @@ pacote: $(TARGET)
 	# Arquivos do próprio sistema
 	cp style.css icone.png icone.ico $(PACOTE)/
 	cp -r ajuda/. $(PACOTE)/ajuda/
-	-cp data/*.dat data/historico.txt $(PACOTE)/data/ 2>/dev/null
+	-cp data/*.dat data/historico.txt data/semestre.txt $(PACOTE)/data/ 2>/dev/null
 	@echo ""
 	@echo "Pronto! A pasta $(PACOTE) tem o sistema completo."
 	@echo "Copie a pasta para o computador do DATP, abra $(PACOTE)/bin/datp_app.exe."

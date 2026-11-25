@@ -15,6 +15,8 @@ typedef struct {
     GtkWidget *window;
     GtkWidget *stack;
     GtkWidget *nav_btns[NUM_PAGINAS];
+    GtkWidget *btn_semestre;       // "SEMESTRE 2026.2" na barra lateral (clicar muda o semestre)
+    GtkWidget *ajuda_semestre_lbl; // texto do cartão "Semestre" na Ajuda
 
     // Página "Painel de salas"
     GtkWidget *painel_flow;

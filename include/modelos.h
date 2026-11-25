@@ -9,6 +9,7 @@
 #define ARQ_ALOCACOES "data/alocacoes.dat"
 #define ARQ_SALAS     "data/salas.dat"
 #define ARQ_HISTORICO "data/historico.txt"
+#define ARQ_SEMESTRE  "data/semestre.txt"   // semestre escolhido pelo DATP (sem ele, vale a data)
 
 // Tamanho maximo de uma linha do historico
 #define TAM_LINHA_HISTORICO 512

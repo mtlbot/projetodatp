@@ -219,6 +219,13 @@ static void adicionar_classe(GtkWidget *w, const char *classe) {
     gtk_style_context_add_class(gtk_widget_get_style_context(w), classe);
 }
 
+// Nome sugerido ao exportar, ex.: "Turma-Horario-2026.2.csv"
+static void nome_com_semestre(char *saida, size_t tamanho, const char *inicio) {
+    char sem[16];
+    semestre_atual(ARQ_SEMESTRE, sem, sizeof(sem));
+    snprintf(saida, tamanho, "%s-%s.csv", inicio, sem);
+}
+
 static GtkWidget *criar_cabecalho(GtkWidget *vbox, const char *titulo, const char *subtitulo) {
     GtkWidget *lbl_title = gtk_label_new(titulo);
     adicionar_classe(lbl_title, "page-title");
@@ -1347,7 +1354,9 @@ static void avisar_planilha_salva(InterfaceApp *ui, const char *caminho, gboolea
 static void ao_clicar_exportar_grade(GtkWidget *btn, gpointer data) {
     (void)btn;
     InterfaceApp *ui = data;
-    char *destino = escolher_onde_salvar(ui, "Salvar planilha Turma – Horário", "Turma-Horario-2026.2.csv");
+    char nome[64];
+    nome_com_semestre(nome, sizeof(nome), "Turma-Horario");
+    char *destino = escolher_onde_salvar(ui, "Salvar planilha Turma – Horário", nome);
     if (!destino) return;
 
     // Mesmo truque da importação: o backend grava num caminho simples e a GLib copia
@@ -1390,7 +1399,9 @@ static void ao_clicar_exportar_livres(GtkWidget *btn, gpointer data) {
         mostrar_mensagem(ui, GTK_MESSAGE_INFO, "A lista está vazia.", "Escolha um dia e um horário com salas livres antes de exportar.");
         return;
     }
-    char *destino = escolher_onde_salvar(ui, "Salvar lista de salas livres", "Salas-Livres-2026.2.csv");
+    char nome[64];
+    nome_com_semestre(nome, sizeof(nome), "Salas-Livres");
+    char *destino = escolher_onde_salvar(ui, "Salvar lista de salas livres", nome);
     if (!destino) return;
 
     GString *csv = g_string_new("\xEF\xBB\xBF"); // BOM: faz o Excel reconhecer os acentos
@@ -2192,6 +2203,121 @@ static void ao_clicar_resetar(GtkWidget *btn, gpointer data) {
     g_free(pasta_backup);
 }
 
+// =======================================================
+// SEMESTRE (barra lateral + cartão na Ajuda)
+// =======================================================
+// O semestre muda sozinho pela data (jan–jul = .1, ago–dez = .2). Se o DATP precisar,
+// escolhe outro na mão e a escolha fica em data/semestre.txt.
+
+// Atualiza o "SEMESTRE 2026.2" da barra lateral e o texto do cartão na Ajuda
+static void atualizar_semestre(InterfaceApp *ui) {
+    char sem[16];
+    int manual = semestre_atual(ARQ_SEMESTRE, sem, sizeof(sem));
+
+    char texto[64];
+    snprintf(texto, sizeof(texto), "SEMESTRE %s  ✎", sem);
+    if (ui->btn_semestre) gtk_button_set_label(GTK_BUTTON(ui->btn_semestre), texto);
+
+    if (ui->ajuda_semestre_lbl) {
+        char ajuda[400];
+        if (manual)
+            snprintf(ajuda, sizeof(ajuda), "Semestre em uso: %s (escolhido aqui no sistema).\n"
+                     "Ele aparece na barra lateral e no nome das planilhas exportadas. "
+                     "Para o sistema voltar a trocar sozinho pela data, escolha \"Automático\".", sem);
+        else
+            snprintf(ajuda, sizeof(ajuda), "Semestre em uso: %s (automático, pela data do computador: "
+                     "janeiro a julho = .1, agosto a dezembro = .2).\n"
+                     "Ele aparece na barra lateral e no nome das planilhas exportadas.", sem);
+        gtk_label_set_text(GTK_LABEL(ui->ajuda_semestre_lbl), ajuda);
+    }
+}
+
+static void ao_marcar_semestre_manual(GtkToggleButton *radio, gpointer caixa) {
+    gtk_widget_set_sensitive(GTK_WIDGET(caixa), gtk_toggle_button_get_active(radio));
+}
+
+// Clique em "SEMESTRE ..." (barra lateral) ou em "Mudar semestre" (Ajuda)
+static void ao_clicar_semestre(GtkWidget *btn, gpointer data) {
+    (void)btn;
+    InterfaceApp *ui = data;
+    char atual[16], pela_data[16];
+    int manual = semestre_atual(ARQ_SEMESTRE, atual, sizeof(atual));
+    semestre_pela_data(pela_data, sizeof(pela_data));
+
+    GtkWidget *d = gtk_dialog_new_with_buttons("Semestre", GTK_WINDOW(ui->window),
+                                               GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                               "Cancelar", GTK_RESPONSE_CANCEL, "Salvar", GTK_RESPONSE_OK, NULL);
+    gtk_dialog_set_default_response(GTK_DIALOG(d), GTK_RESPONSE_OK);
+    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(d));
+    gtk_container_set_border_width(GTK_CONTAINER(area), 15);
+    gtk_box_set_spacing(GTK_BOX(area), 10);
+
+    GtkWidget *titulo = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(titulo), "<b>Qual é o semestre letivo?</b>");
+    gtk_label_set_xalign(GTK_LABEL(titulo), 0.0);
+    GtkWidget *lbl = gtk_label_new("O semestre aparece na barra lateral e no nome das planilhas exportadas.\n"
+                                   "Mudar o semestre NÃO apaga nem troca as aulas cadastradas. Para começar um "
+                                   "semestre novo, exporte a planilha do atual (para guardar) e depois importe a nova.");
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
+    gtk_label_set_line_wrap(GTK_LABEL(lbl), TRUE);
+    gtk_label_set_max_width_chars(GTK_LABEL(lbl), 60);
+
+    char texto_auto[120];
+    snprintf(texto_auto, sizeof(texto_auto), "Automático, pela data do computador (hoje: %s)", pela_data);
+    GtkWidget *r_auto = gtk_radio_button_new_with_label(NULL, texto_auto);
+    GtkWidget *r_manual = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(r_auto), "Escolher o semestre:");
+
+    // Ano + semestre (.1 / .2). Começa no semestre em uso.
+    GtkWidget *escolha = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_margin_start(escolha, 28);
+    GtkWidget *ano = gtk_spin_button_new_with_range(2000, 2099, 1);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(ano), atoi(atual));
+    GtkWidget *metade = gtk_combo_box_text_new();
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(metade), ".1  (1º semestre)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(metade), ".2  (2º semestre)");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(metade), atual[5] == '2' ? 1 : 0);
+    gtk_box_pack_start(GTK_BOX(escolha), gtk_label_new("Ano:"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(escolha), ano, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(escolha), metade, FALSE, FALSE, 0);
+
+    g_signal_connect(r_manual, "toggled", G_CALLBACK(ao_marcar_semestre_manual), escolha);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(manual ? r_manual : r_auto), TRUE);
+    gtk_widget_set_sensitive(escolha, manual);
+
+    gtk_box_pack_start(GTK_BOX(area), titulo, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(area), lbl, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(area), r_auto, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(area), r_manual, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(area), escolha, FALSE, FALSE, 0);
+    adicionar_classe(gtk_dialog_get_widget_for_response(GTK_DIALOG(d), GTK_RESPONSE_OK), "suggested-action");
+    gtk_widget_show_all(d);
+
+    int r = gtk_dialog_run(GTK_DIALOG(d));
+    gboolean escolheu = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r_manual));
+    char novo[16];
+    snprintf(novo, sizeof(novo), "%04d.%d", gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(ano)),
+             gtk_combo_box_get_active(GTK_COMBO_BOX(metade)) == 1 ? 2 : 1);
+    gtk_widget_destroy(d);
+    if (r != GTK_RESPONSE_OK) return;
+
+    if (!salvar_semestre(ARQ_SEMESTRE, escolheu ? novo : NULL)) {
+        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "Não foi possível salvar o semestre.",
+                         "Verifique se a pasta data/ existe e se o arquivo data/semestre.txt não está aberto em outro programa.");
+        return;
+    }
+
+    char depois[16];
+    semestre_atual(ARQ_SEMESTRE, depois, sizeof(depois));
+    atualizar_semestre(ui);
+    if (strcmp(depois, atual) == 0 && (escolheu != 0) == (manual != 0)) return; // nada mudou
+
+    char aviso[200];
+    if (escolheu) snprintf(aviso, sizeof(aviso), "Semestre alterado para %s.", depois);
+    else snprintf(aviso, sizeof(aviso), "Semestre automático, pela data: %s.", depois);
+    mostrar_balao(aviso, FALSE);
+    registrar_no_historico(aviso);
+}
+
 static GtkWidget *criar_cartao_ajuda(const char *titulo, const char *texto, GtkWidget *botao) {
     GtkWidget *caixa = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
     adicionar_classe(caixa, "ajuda-card");
@@ -2231,6 +2357,16 @@ static GtkWidget* criar_pagina_ajuda(InterfaceApp *ui) {
         "5. Errou? Clique em \"Desfazer\" no aviso que aparece embaixo da tela.\n"
         "6. Em \"Notificações\" ficam as turmas sem sala, os choques de horário e o histórico de tudo o que mudou.",
         NULL), FALSE, FALSE, 0);
+
+    GtkWidget *b_sem = criar_botao_acao("Mudar semestre", "Escolher o semestre ou deixar automático", G_CALLBACK(ao_clicar_semestre), ui);
+    GtkWidget *cartao_sem = criar_cartao_ajuda("Semestre", "", b_sem);
+    // O texto do cartão é o 2º rótulo da caixa de textos; guardamos para atualizar depois
+    GList *filhos = gtk_container_get_children(GTK_CONTAINER(cartao_sem));
+    GList *textos = gtk_container_get_children(GTK_CONTAINER(filhos->data));
+    ui->ajuda_semestre_lbl = g_list_nth_data(textos, 1);
+    g_list_free(textos);
+    g_list_free(filhos);
+    gtk_box_pack_start(GTK_BOX(vbox), cartao_sem, FALSE, FALSE, 0);
 
     GtkWidget *b_reset = criar_botao_acao("Resetar sistema", "Apaga todas as aulas e salas (pede confirmação)", G_CALLBACK(ao_clicar_resetar), ui);
     adicionar_classe(b_reset, "danger");
@@ -2292,12 +2428,15 @@ void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
     adicionar_classe(lbl_brand, "sidebar-title");
     gtk_label_set_xalign(GTK_LABEL(lbl_brand), 0.0);
 
-    GtkWidget *lbl_semestre = gtk_label_new("SEMESTRE 2026.2");
-    adicionar_classe(lbl_semestre, "sidebar-subtitle");
-    gtk_label_set_xalign(GTK_LABEL(lbl_semestre), 0.0);
+    // "SEMESTRE 2026.2 ✎": calculado pela data; clicar abre a escolha do semestre
+    ui->btn_semestre = gtk_button_new_with_label("SEMESTRE");
+    adicionar_classe(ui->btn_semestre, "semestre-btn");
+    gtk_widget_set_halign(ui->btn_semestre, GTK_ALIGN_START);
+    gtk_widget_set_tooltip_text(ui->btn_semestre, "Clique para mudar o semestre");
+    g_signal_connect(ui->btn_semestre, "clicked", G_CALLBACK(ao_clicar_semestre), ui);
 
     gtk_box_pack_start(GTK_BOX(sidebar), lbl_brand, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(sidebar), lbl_semestre, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(sidebar), ui->btn_semestre, FALSE, FALSE, 0);
 
     // Botões de Navegação da Sidebar
     const char *rotulos_nav[NUM_PAGINAS] = {"田  Painel de salas", "📄  Planilha: Turma – Horário",
@@ -2331,5 +2470,6 @@ void criar_interface_principal(GtkApplication *app, InterfaceApp *ui) {
     gtk_box_pack_start(GTK_BOX(main_box), overlay, TRUE, TRUE, 0);
 
     atualizar_telas(ui);
+    atualizar_semestre(ui);
     gtk_widget_show_all(ui->window);
 }

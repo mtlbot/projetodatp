@@ -109,4 +109,22 @@ int contar_historico(const char *caminho_arquivo);
 // Apaga todas as linhas do historico (o arquivo fica vazio). Retorna 1 ou 0.
 int limpar_historico(const char *caminho_arquivo);
 
+// =======================================================
+// MODULO 5: SEMESTRE LETIVO (semestre.c)
+// =======================================================
+
+// Calcula o semestre pela data do computador: janeiro a julho = "AAAA.1", agosto a dezembro = "AAAA.2".
+void semestre_pela_data(char *saida, int tamanho);
+
+// Confere se o texto esta no formato AAAA.1 ou AAAA.2 (ex.: "2026.2"). Retorna 1 ou 0.
+int semestre_valido(const char *texto);
+
+// Coloca em "saida" o semestre em uso: o escolhido pelo DATP (arquivo) ou, sem escolha, o da data.
+// Retorna 1 se veio do arquivo (escolhido na mao) ou 0 se e o automatico.
+int semestre_atual(const char *caminho_arquivo, char *saida, int tamanho);
+
+// Grava o semestre escolhido. Com semestre NULL ou "" volta para o automatico (apaga o arquivo).
+// Retorna 1 (sucesso) ou 0 (formato invalido ou erro ao gravar).
+int salvar_semestre(const char *caminho_arquivo, const char *semestre);
+
 #endif
