@@ -1,4 +1,6 @@
 #include <glib.h>
+#include <poppler.h>
+#include <math.h>
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -7,22 +9,106 @@
 // =======================================================
 // CONVERSOR PDF -> CSV
 // =======================================================
-// O texto do PDF é extraído pelo "pdftotext -layout" (Poppler), que mantém as colunas
-// alinhadas com espaços. Cada linha com um dia + horário (ex.: "SEG - 07:10 às 08:50")
-// vira uma linha do CSV. Linhas de título, rodapé ("Página 1 de 5") e cabeçalho são ignoradas.
+// O texto do PDF é lido pela biblioteca Poppler-GLib (API em C, ligada ao programa como o GTK).
+// Nosso código pega cada letra com a posição dela na página e remonta as linhas, deixando
+// as colunas separadas por vários espaços. Cada linha com um dia + horário
+// (ex.: "SEG - 07:10 às 08:50") vira uma linha do CSV. Linhas de título, rodapé
+// ("Página 1 de 5") e cabeçalho são ignoradas.
 //
-// Onde fica o pdftotext:
-//  - Linux:  pacote poppler-utils (sudo apt install poppler-utils)
-//  - MSYS2:  pacman -S mingw-w64-x86_64-poppler  (pdftotext.exe fica em /mingw64/bin;
-//            para entregar ao DATP, copie pdftotext.exe e as DLLs para a pasta bin/ do programa)
+// Biblioteca necessária:
+//  - Linux:  sudo apt install libpoppler-glib-dev
+//  - MSYS2:  pacman -S mingw-w64-x86_64-poppler
 
-// Procura o pdftotext ao lado do programa e depois no PATH
-static char *achar_pdftotext(void) {
-    const char *nomes[] = {"bin/pdftotext.exe", "bin/pdftotext", "pdftotext.exe", NULL};
-    for (int i = 0; nomes[i]; i++) {
-        if (g_file_test(nomes[i], G_FILE_TEST_IS_EXECUTABLE)) return g_strdup(nomes[i]);
+// Um caractere do PDF com a posição dele na página
+typedef struct {
+    gunichar c;
+    double x1, x2, y;
+} Letra;
+
+static int comparar_letras(const void *a, const void *b) {
+    const Letra *la = a, *lb = b;
+    if (la->y < lb->y - 2.0) return -1;          // linha de cima primeiro
+    if (la->y > lb->y + 2.0) return 1;
+    return (la->x1 > lb->x1) - (la->x1 < lb->x1); // mesma linha: da esquerda para a direita
+}
+
+// Lê o texto de uma página mantendo as colunas alinhadas com espaços
+// (o mesmo resultado do "pdftotext -layout", mas feito aqui no nosso código C)
+static void extrair_pagina(PopplerPage *pagina, GString *saida) {
+    char *texto = poppler_page_get_text(pagina);
+    PopplerRectangle *ret = NULL;
+    guint n_ret = 0;
+    if (texto == NULL || !poppler_page_get_text_layout(pagina, &ret, &n_ret)) {
+        g_free(texto);
+        return;
     }
-    return g_find_program_in_path("pdftotext");
+
+    // Junta cada letra (sem os espaços) com o retângulo dela
+    Letra *letras = g_new(Letra, n_ret);
+    int n = 0;
+    double soma_larguras = 0;
+    const char *p = texto;
+    for (guint i = 0; i < n_ret && *p; i++, p = g_utf8_next_char(p)) {
+        gunichar c = g_utf8_get_char(p);
+        if (g_unichar_isspace(c)) continue;
+        letras[n].c = c;
+        letras[n].x1 = ret[i].x1;
+        letras[n].x2 = ret[i].x2;
+        letras[n].y = (ret[i].y1 + ret[i].y2) / 2.0;
+        soma_larguras += ret[i].x2 - ret[i].x1;
+        n++;
+    }
+    qsort(letras, n, sizeof(Letra), comparar_letras);
+    double largura = n > 0 ? soma_larguras / n : 5.0;   // largura média de uma letra
+    if (largura < 1.0) largura = 1.0;
+
+    // Monta as linhas: espaço pequeno = 1 espaço; espaço grande = vários (separa colunas)
+    for (int i = 0; i < n; i++) {
+        if (i > 0) {
+            if (comparar_letras(&letras[i - 1], &letras[i]) != 0 && fabs(letras[i].y - letras[i - 1].y) > 2.0) {
+                g_string_append_c(saida, '\n');
+            } else {
+                double vao = letras[i].x1 - letras[i - 1].x2;
+                if (vao > largura * 0.4) {
+                    int espacos = (int)(vao / largura + 0.5);
+                    if (espacos < 1) espacos = 1;
+                    if (vao > largura * 1.6 && espacos < 2) espacos = 2;
+                    for (int k = 0; k < espacos; k++) g_string_append_c(saida, ' ');
+                }
+            }
+        }
+        g_string_append_unichar(saida, letras[i].c);
+    }
+    g_string_append_c(saida, '\n');
+
+    g_free(letras);
+    g_free(ret);
+    g_free(texto);
+}
+
+// Abre o PDF com a biblioteca Poppler (API em C) e devolve o texto de todas as páginas
+static char *extrair_texto_pdf(const char *caminho_pdf, char *erro, int tam_erro) {
+    GError *gerro = NULL;
+    char *uri = g_filename_to_uri(caminho_pdf, NULL, &gerro);
+    PopplerDocument *doc = uri ? poppler_document_new_from_file(uri, NULL, &gerro) : NULL;
+    g_free(uri);
+    if (doc == NULL) {
+        snprintf(erro, tam_erro, "Não foi possível ler o PDF. Confira se o arquivo abre normalmente e não tem senha.%s%s",
+                 gerro ? "\nDetalhe: " : "", gerro ? gerro->message : "");
+        if (gerro) g_error_free(gerro);
+        return NULL;
+    }
+    GString *texto = g_string_new("");
+    int paginas = poppler_document_get_n_pages(doc);
+    for (int i = 0; i < paginas; i++) {
+        PopplerPage *pagina = poppler_document_get_page(doc, i);
+        if (pagina) {
+            extrair_pagina(pagina, texto);
+            g_object_unref(pagina);
+        }
+    }
+    g_object_unref(doc);
+    return g_string_free(texto, FALSE);
 }
 
 // Procura "SEG - 07:10 às 08:50" (ou SEG 07:10 - 08:50, SÁB..., 7:10 a 8:50) e devolve início/fim do trecho
@@ -68,34 +154,8 @@ int converter_pdf_para_csv(const char *caminho_pdf, const char *caminho_csv,
     *linhas_convertidas = 0;
     erro[0] = '\0';
 
-    char *programa = achar_pdftotext();
-    if (programa == NULL) {
-        snprintf(erro, tam_erro, "O leitor de PDF (pdftotext) não foi encontrado. Ele precisa estar na pasta bin do "
-                 "programa. Enquanto isso, converta o PDF para CSV pelo Excel (Dados > Obter Dados > Do PDF) e importe o CSV.");
-        return 0;
-    }
-
-    char *argv[] = {programa, "-layout", "-enc", "UTF-8", (char *)caminho_pdf, "-", NULL};
-    char *texto = NULL, *saida_erro = NULL;
-    int status = 0;
-    GError *gerro = NULL;
-    gboolean ok = g_spawn_sync(NULL, argv, NULL, G_SPAWN_DEFAULT, NULL, NULL, &texto, &saida_erro, &status, &gerro);
-    g_free(programa);
-
-    if (!ok || !g_spawn_check_wait_status(status, NULL) || texto == NULL) {
-        snprintf(erro, tam_erro, "Não foi possível ler o PDF. Confira se o arquivo abre normalmente e não tem senha.%s%s",
-                 gerro ? "\nDetalhe: " : "", gerro ? gerro->message : "");
-        if (gerro) g_error_free(gerro);
-        g_free(texto);
-        g_free(saida_erro);
-        return 0;
-    }
-    g_free(saida_erro);
-
-    if (!g_utf8_validate(texto, -1, NULL)) {
-        char *conv = g_convert(texto, -1, "UTF-8", "WINDOWS-1252", NULL, NULL, NULL);
-        if (conv) { g_free(texto); texto = conv; }
-    }
+    char *texto = extrair_texto_pdf(caminho_pdf, erro, tam_erro);
+    if (texto == NULL) return 0;
 
     GString *csv = g_string_new("");
     escrever_campo(csv, "DEPTO", FALSE);
