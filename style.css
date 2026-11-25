@@ -54,7 +54,8 @@ dialog button, messagedialog button {
     color: #FFFFFF;
     font-size: 28px;
     font-weight: bold;
-    font-family: serif;
+    font-family: 'Cambria', 'DejaVu Serif', serif;   /* Cambria (Windows): números alinhados, o 3 não desce da linha */
+    font-feature-settings: "lnum";
 }
 
 .sidebar-subtitle {
@@ -117,7 +118,8 @@ dialog button, messagedialog button {
     font-size: 31px;
     font-weight: bold;
     color: #1A1A1A;
-    font-family: serif;
+    font-family: 'Cambria', 'DejaVu Serif', serif;   /* Cambria (Windows): números alinhados, o 3 não desce da linha */
+    font-feature-settings: "lnum";
 }
 
 .page-subtitle {
@@ -177,7 +179,8 @@ dialog button, messagedialog button {
 .kpi-value {
     font-size: 30px;
     font-weight: bold;
-    font-family: serif;
+    font-family: 'Cambria', 'DejaVu Serif', serif;   /* Cambria (Windows): números alinhados, o 3 não desce da linha */
+    font-feature-settings: "lnum";
 }
 
 /* ==========================================================================
@@ -393,7 +396,8 @@ window.login-fundo {
 }
 
 .login-titulo {
-    font-family: serif;
+    font-family: 'Cambria', 'DejaVu Serif', serif;   /* Cambria (Windows): números alinhados, o 3 não desce da linha */
+    font-feature-settings: "lnum";
     font-size: 36px;
     font-weight: bold;
     color: #003322;
