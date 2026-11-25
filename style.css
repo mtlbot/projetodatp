@@ -296,3 +296,8 @@ window, .main-bg {
 .pill-btn.danger:hover {
     background-color: #991B1B;
 }
+
+/* Botão sem ação disponível (ex.: "Limpar histórico" com a lista vazia) */
+.pill-btn:disabled {
+    opacity: 0.5;
+}

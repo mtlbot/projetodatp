@@ -103,4 +103,10 @@ int registrar_historico(const char *caminho_arquivo, const char *texto);
 // Le as ultimas "max" linhas do historico, a mais recente primeiro. Retorna quantas leu.
 int ler_historico(const char *caminho_arquivo, char linhas[][TAM_LINHA_HISTORICO], int max);
 
+// Conta quantas mudancas estao registradas no historico (0 se o arquivo nao existe).
+int contar_historico(const char *caminho_arquivo);
+
+// Apaga todas as linhas do historico (o arquivo fica vazio). Retorna 1 ou 0.
+int limpar_historico(const char *caminho_arquivo);
+
 #endif

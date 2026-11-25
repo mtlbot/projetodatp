@@ -1961,6 +1961,7 @@ static void atualizar_notificacoes(InterfaceApp *ui) {
     }
     if (n == 0) adicionar_linha_aviso(ui->avisos_historico, "Nenhuma mudança registrada ainda.",
                                       "Cada aula cadastrada, trocada ou cancelada aparece aqui com data e hora.", NULL, 0, ui);
+    if (ui->btn_limpar_historico) gtk_widget_set_sensitive(ui->btn_limpar_historico, n > 0); // nada para apagar: botão fica apagado
 
     gtk_widget_show_all(ui->avisos_pendencias);
     gtk_widget_show_all(ui->avisos_historico);
@@ -1978,6 +1979,79 @@ static GtkWidget *criar_secao(GtkWidget *vbox, const char *titulo, GtkWidget **l
     return *lista;
 }
 
+// Clique em "Limpar histórico": pergunta antes, guarda uma cópia (se marcado) e esvazia data/historico.txt.
+// As aulas e as salas NÃO mudam: só a lista de registros some.
+static void ao_clicar_limpar_historico(GtkWidget *btn, gpointer data) {
+    (void)btn;
+    InterfaceApp *ui = data;
+    int total = contar_historico(ARQ_HISTORICO);
+    if (total == 0) return;
+
+    GtkWidget *d = gtk_dialog_new_with_buttons("Limpar histórico", GTK_WINDOW(ui->window),
+                                               GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                               "Voltar", GTK_RESPONSE_CANCEL, "Apagar histórico", GTK_RESPONSE_OK, NULL);
+    gtk_dialog_set_default_response(GTK_DIALOG(d), GTK_RESPONSE_CANCEL); // Enter sem pensar não apaga nada
+    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(d));
+    gtk_container_set_border_width(GTK_CONTAINER(area), 15);
+    gtk_box_set_spacing(GTK_BOX(area), 10);
+
+    GtkWidget *titulo = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(titulo), "<b>Apagar o histórico de mudanças?</b>");
+    gtk_label_set_xalign(GTK_LABEL(titulo), 0.0);
+    char texto[400];
+    snprintf(texto, sizeof(texto), "%d registro(s) de mudança vão sair da lista.\n"
+             "As aulas e as salas cadastradas NÃO mudam: só some a lista do que foi feito.", total);
+    GtkWidget *lbl = gtk_label_new(texto);
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
+    gtk_label_set_line_wrap(GTK_LABEL(lbl), TRUE);
+    gtk_label_set_max_width_chars(GTK_LABEL(lbl), 60);
+    GtkWidget *guardar = gtk_check_button_new_with_label("Guardar uma cópia na pasta data/ antes de apagar");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(guardar), TRUE);
+    gtk_box_pack_start(GTK_BOX(area), titulo, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(area), lbl, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(area), guardar, FALSE, FALSE, 0);
+    adicionar_classe(gtk_dialog_get_widget_for_response(GTK_DIALOG(d), GTK_RESPONSE_OK), "destructive-action");
+    gtk_widget_show_all(d);
+
+    int r = gtk_dialog_run(GTK_DIALOG(d));
+    gboolean com_copia = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(guardar));
+    gtk_widget_destroy(d);
+    if (r != GTK_RESPONSE_OK) return;
+
+    // Cópia de segurança: data/historico-apagado-AAAAMMDD-HHMMSS.txt (abre no Bloco de Notas)
+    char *copia = NULL;
+    if (com_copia) {
+        GDateTime *agora = g_date_time_new_now_local();
+        copia = g_date_time_format(agora, "data/historico-apagado-%Y%m%d-%H%M%S.txt");
+        g_date_time_unref(agora);
+        char *conteudo = NULL;
+        gsize tam = 0;
+        gboolean ok = g_file_get_contents(ARQ_HISTORICO, &conteudo, &tam, NULL) &&
+                      g_file_set_contents(copia, conteudo, (gssize)tam, NULL);
+        g_free(conteudo);
+        if (!ok) {
+            mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "O histórico não foi apagado.",
+                             "Não foi possível guardar a cópia na pasta data/. Verifique se a pasta existe e se há espaço no computador.");
+            g_free(copia);
+            return;
+        }
+    }
+
+    if (!limpar_historico(ARQ_HISTORICO)) {
+        mostrar_mensagem(ui, GTK_MESSAGE_ERROR, "O histórico não foi apagado.",
+                         "Não foi possível mexer no arquivo data/historico.txt. Feche-o se estiver aberto em outro programa e tente de novo.");
+        g_free(copia);
+        return;
+    }
+    atualizar_notificacoes(ui);
+
+    char aviso[300];
+    if (copia) snprintf(aviso, sizeof(aviso), "Histórico apagado. Uma cópia ficou em %s.", copia);
+    else snprintf(aviso, sizeof(aviso), "Histórico apagado.");
+    mostrar_balao(aviso, FALSE);
+    g_free(copia);
+}
+
 static GtkWidget* criar_pagina_notificacoes(InterfaceApp *ui) {
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 25);
@@ -1985,7 +2059,25 @@ static GtkWidget* criar_pagina_notificacoes(InterfaceApp *ui) {
 
     GtkWidget *conteudo = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     criar_secao(conteudo, "Pendências", &ui->avisos_pendencias);
-    criar_secao(conteudo, "Histórico de mudanças", &ui->avisos_historico);
+
+    // Título "Histórico de mudanças" com o botão "Limpar histórico" na mesma linha, à direita
+    // (fica sempre à vista, mesmo quando a lista é comprida)
+    GtkWidget *cab_hist = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    GtkWidget *l_hist = gtk_label_new("Histórico de mudanças");
+    adicionar_classe(l_hist, "section-title");
+    gtk_label_set_xalign(GTK_LABEL(l_hist), 0.0);
+    gtk_widget_set_valign(l_hist, GTK_ALIGN_END);
+    gtk_box_pack_start(GTK_BOX(cab_hist), l_hist, TRUE, TRUE, 0);
+    ui->btn_limpar_historico = criar_botao_acao("🗑  Limpar histórico",
+        "Apaga a lista de mudanças (pede confirmação). As aulas e as salas não mudam.",
+        G_CALLBACK(ao_clicar_limpar_historico), ui);
+    gtk_box_pack_end(GTK_BOX(cab_hist), ui->btn_limpar_historico, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(conteudo), cab_hist, FALSE, FALSE, 0);
+
+    ui->avisos_historico = gtk_list_box_new();
+    gtk_list_box_set_selection_mode(GTK_LIST_BOX(ui->avisos_historico), GTK_SELECTION_NONE);
+    adicionar_classe(ui->avisos_historico, "aviso-lista");
+    gtk_box_pack_start(GTK_BOX(conteudo), ui->avisos_historico, FALSE, FALSE, 0);
 
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_container_add(GTK_CONTAINER(scroll), conteudo);

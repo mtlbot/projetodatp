@@ -46,6 +46,7 @@ typedef struct {
     // Página "Notificações"
     GtkWidget *avisos_pendencias;
     GtkWidget *avisos_historico;
+    GtkWidget *btn_limpar_historico;
 
     // Dados (backend)
     AlocacaoTurma alocacoes[MAX_ALOCACOES];
